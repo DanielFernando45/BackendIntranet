@@ -1,25 +1,30 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-
+import * as fs from 'fs';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.enableCors({  
-  origin:[
-    'https://intranet.alejandriaconsultora.com', 
-    'https://intranet-alejandria-dnzgf89d3-danielfernandos-projects.vercel.app/',
-  ], // o el host correcto
-  credentials: true,})
+  const httpsOptions = {
+    key: fs.readFileSync('/etc/letsencrypt/live/api.alejandriaconsultora.com/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/api.alejandriaconsultora.com/fullchain.pem'),
+  };
+
+  const app = await NestFactory.create(AppModule, { httpsOptions });
+
+  app.enableCors({
+    origin: ['https://intranet.alejandriaconsultora.com'],
+    credentials: true,
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
-      transform:true,
+      transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
-    })
+    }),
   );
-  await app.listen(process.env.PORT ?? 3000);
+
+  await app.listen(3001);
 }
 
 bootstrap();
-
