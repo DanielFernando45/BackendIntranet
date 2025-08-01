@@ -6,7 +6,10 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({  
-  origin: 'https://intranet.alejandriaconsultora.com', // o el host correcto
+  origin:[
+    'https://intranet.alejandriaconsultora.com', 
+    'https://intranet-alejandria-dnzgf89d3-danielfernandos-projects.vercel.app/',
+  ], // o el host correcto
   credentials: true,})
   app.useGlobalPipes(
     new ValidationPipe({
