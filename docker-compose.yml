@@ -1,0 +1,90 @@
+services:
+  mysqldb:
+    image: mysql:8
+    container_name: mysql-db
+    environment:
+      - MYSQL_USER=${MYSQL_USER_ENV}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD_ENV}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD_ENV}
+      - MYSQL_DATABASE=${MYSQL_DATABASE_ENV}
+    ports:
+      - "${MYSQLDB_LOCAL_PORT_ENV}:${MYSQLDB_DOCKER_PORT_ENV}"
+    volumes:
+      - base_datos_volume:/var/lib/mysql
+    networks:
+      - app-network
+
+  backend:
+    build: 
+      context: ./backend_nest-js
+    container_name: nest-backend
+    ports:
+      - "${LOCAL_API_PORT_ENV}:${DOCKER_API_PORT_ENV}"
+    environment:
+      - DB_HOST=mysqldb
+      - DB_PORT=${DB_PORT_ENV}
+      - DB_NAME=${MYSQL_DATABASE_ENV}
+      - DB_USER=${MYSQL_ROOT_ENV}
+      - DB_PASSWORD=${MYSQL_PASSWORD_ENV}
+      - JWT_SECRET=${JWT_SECRET}
+      - S1_EMAIL=${SECTOR1_EMAIL}
+      - S1_CLIENT_ID=${SECTOR1_CLIENT_ID}
+      - S1_CLIENT_SECRET=${SECTOR1_CLIENT_SECRET}
+      - S1_ACCOUNT_ID=${SECTOR1_ACCOUNT_ID}
+      - S2_EMAIL=${SECTOR2_EMAIL}
+      - S2_CLIENT_ID=${SECTOR2_CLIENT_ID}
+      - S2_CLIENT_SECRET=${SECTOR2_CLIENT_SECRET}
+      - S2_ACCOUNT_ID=${SECTOR2_ACCOUNT_ID}
+      - B2_KEY_ID=${B2_KEY_ID}
+      - B2_APP_KEY=${B2_APP_KEY}
+      - BUCKET_ID=${BUCKET_ID}
+      - BUCKET_NAME=${BUCKET_NAME}
+      - GMAIL=${GMAIL}
+      - GMAIL_PASSWORD=${GMAIL_PASSWORD}
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - mysqldb
+    command: >
+      /bin/bash -c "/usr/local/bin/wait-for-it.sh mysql-db:3306 -- npm run start:dev"
+    volumes:
+      - type: bind
+        source: ./backend_nest-js
+        target: /myapp
+        consistency: cached
+      - type: volume
+        source: backend_node_modules
+        target: /myapp/node_modules
+      - type: bind
+        source: ./backend_nest-js/static
+        target: /myapp/static
+        consistency: cached
+    networks:
+      - app-network
+    
+# frontend:
+#   build:
+#     context: ./FrontIntranet
+#   container_name: vite-frontend
+#   ports:
+#     - "${LOCAL_FRONT_PORT_ENV}:${DOCKER_FRONT_PORT_ENV}"
+#   environment:
+#     - CHOKIDAR_USEPOLLING=true
+#     - REACT_API_URL=${URL_DESARROLLO_ENV}
+#   depends_on:
+#     - backend
+#   command: >
+#     /bin/bash -c "/usr/local/bin/wait-for-it.sh backend:3000 -- npm run dev"
+#   volumes:
+#     - ./FrontIntranet:/app
+#     - /app/node_modules
+#   networks:
+#     - app-network
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  backend_node_modules:
+  base_datos_volume:
+  backend_volume:
+  frontend_volume:

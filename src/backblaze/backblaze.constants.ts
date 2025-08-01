@@ -1,0 +1,1 @@
+export const B2_INSTANCE="B2_INSTANCE"
