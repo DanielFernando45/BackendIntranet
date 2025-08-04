@@ -49,6 +49,7 @@ services:
       /bin/bash -c "/usr/local/bin/wait-for-it.sh mysql-db:3306 -- npm run start:prod"
     volumes:
       - ./static:/myapp/static
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - app-network
     
