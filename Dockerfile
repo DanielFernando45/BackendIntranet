@@ -1,20 +1,27 @@
 FROM node:22.14.0-bullseye
 
+# Establecer directorio de trabajo
 WORKDIR /myapp
 
-# Copia solo los archivos necesarios para instalar dependencias
+# Copiar solo archivos necesarios para instalar dependencias
 COPY package*.json ./
 
-# Instala dependencias del proyecto (no globales)
+# Instalar dependencias
 RUN npm install
 
-# Copia el resto del código fuente
+# Copiar el resto del código fuente
 COPY . .
 
+# Copiar el script wait-for-it
 COPY wait-for-it/wait-for-it.sh /usr/local/bin/wait-for-it.sh
 RUN chmod +x /usr/local/bin/wait-for-it.sh
 
-# Si tienes un paso de build, descomenta la siguiente línea
-# RUN npm run build
+# Compilar la aplicación NestJS
+RUN npm run build
 
-CMD ["npm", "run", "start:dev"]
+# Exponer el puerto
+EXPOSE 3001
+
+# Comando final: Docker Compose lo sobreescribe, pero está bien tenerlo
+CMD ["node", "dist/src/main"]
+

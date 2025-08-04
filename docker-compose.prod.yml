@@ -46,7 +46,7 @@ services:
     depends_on:
       - mysqldb
     command: >
-      /bin/bash -c "/usr/local/bin/wait-for-it.sh mysql-db:3306 -- npm run start:dev"
+      /bin/bash -c "/usr/local/bin/wait-for-it.sh mysql-db:3306 -- npm run start:prod"
     volumes:
       - ./static:/myapp/static
     networks:
