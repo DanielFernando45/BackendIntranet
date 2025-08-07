@@ -73,7 +73,7 @@ export class AsesoramientoService {
       throw new BadRequestException('ID de asesor inválido');
     }
     const clienteIds = Object.values(clientes).filter(
-      (id) => typeof id === 'number' && id > 0,
+      (id) => typeof id === 'string',
     );
 
     if (clienteIds.length === 0) {

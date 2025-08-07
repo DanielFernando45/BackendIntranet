@@ -30,7 +30,7 @@ export class DocumentosService {
   }
 
 
-  async addedDocumentByClient(nombreDocumento:string,secureUrl: string,id:number,manager:EntityManager) {
+  async addedDocumentByClient(nombreDocumento:string,secureUrl: string,id:string,manager:EntityManager) {
     try{
       if (!nombreDocumento || typeof nombreDocumento !== 'string' || nombreDocumento.trim().length === 0) {
         throw new BadRequestException('nombreDocumento es obligatorio y debe ser un texto no vacío');
@@ -116,7 +116,7 @@ if (index === -1) {
 
   } 
 
-  async finallyDocuments(id:number,dataFiles:archivosDataDto,manager:EntityManager){
+  async finallyDocuments(id:string,dataFiles:archivosDataDto,manager:EntityManager){
     try{
       const newDocument=manager.create(Documento,{nombre:dataFiles.nombreDocumento,ruta:dataFiles.directorio,subido_por:Subido.ASESOR,created_at:new Date(),asunto:{id}})
       const response=await manager.save(newDocument)

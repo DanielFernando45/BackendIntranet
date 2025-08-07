@@ -1,5 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 import * as bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 
 export class Registros1746554350124 implements MigrationInterface {
   name="Registros1746554350124"
@@ -82,7 +83,7 @@ export class Registros1746554350124 implements MigrationInterface {
               (7, 'Cuotas/Avance/Grupal', 'cuotas', 'avance', 'grupal'),
               (8, 'Cuotas/Plazo/Grupal', 'cuotas', 'plazo', 'grupal');
           `);
-    
+
           for (const u of [...usuarios, ...asesores, ...admins]) {
             const hashed = await bcrypt.hash(`${u.dni}`, 10);
             await queryRunner.query(`
@@ -145,39 +146,42 @@ export class Registros1746554350124 implements MigrationInterface {
                 (5, 2, 2, 2,0),
                 (6, 4, 2, 2,0);
             `);
-            await queryRunner.query(`
-                INSERT INTO Alejandria.asunto (id,titulo, estado, fecha_entregado, fecha_revision, fecha_terminado, id_asesoramiento)
+           await queryRunner.query(`
+                INSERT INTO Alejandria.asunto (id, titulo, estado, fecha_entregado, fecha_revision, fecha_terminado, id_asesoramiento)
                 VALUES
-                (1,'Revisado Avance 1', 'terminado', '2025-05-01 10:00:00', '2025-05-06 13:45:00', '2025-05-14 16:00:00', 1),
-                (2,'Correcion parcial', 'proceso', '2025-05-10 09:00:00', '2025-05-10 14:00:00', '2025-05-15 14:00:00', 1),
-                (3,'Entrega Final', 'entregado', '2025-05-20 11:30:00', NULL , NULL , 1);
+                ('5a7b1d0a-1f9a-4f0e-948d-51339c5b132e','Revisado Avance 1', 'terminado', '2025-05-01 10:00:00', '2025-05-06 13:45:00', '2025-05-14 16:00:00', 1),
+                ('2d6f8b7a-3dc6-49e7-92f7-72fd64d6c422','Correcion parcial', 'proceso', '2025-05-10 09:00:00', '2025-05-10 14:00:00', '2025-05-15 14:00:00', 1),
+                ('20ee1e91-6b31-4d34-8bb9-3f0e71628aa6','Entrega Final', 'entregado', '2025-05-20 11:30:00', NULL , NULL , 1);
             `);
+
             await queryRunner.query(`
-                INSERT INTO Alejandria.asunto (id,titulo, estado, fecha_entregado, fecha_revision, fecha_terminado, id_asesoramiento)
+                INSERT INTO Alejandria.asunto (id, titulo, estado, fecha_entregado, fecha_revision, fecha_terminado, id_asesoramiento)
                 VALUES
-                (4,'Revision Antecedentes', 'terminado', '2025-05-02 10:00:00', '2025-05-04 13:45:00', '2025-05-10 16:00:00', 2),
-                (5,'Correcion Justificacion', 'proceso', '2025-05-11 09:00:00', '2025-05-12 14:00:00', '2025-05-15 14:00:00', 2),
-                (6,'Entrega de objetivos', 'entregado', '2025-05-22 11:30:00', NULL , NULL , 2),
-                (7,'Entrega de metodologia', 'entregado', '2025-05-23 11:30:00', NULL , NULL , 2);
+                ('b9c5c481-9a1c-4977-bc42-b68b6fc476db','Revision Antecedentes', 'terminado', '2025-05-02 10:00:00', '2025-05-04 13:45:00', '2025-05-10 16:00:00', 2),
+                ('d142e7e4-0e68-41b4-b8e4-e74de426383f','Correcion Justificacion', 'proceso', '2025-05-11 09:00:00', '2025-05-12 14:00:00', '2025-05-15 14:00:00', 2),
+                ('68bd671f-458b-4e0c-a6ce-cd09a0d3e5ac','Entrega de objetivos', 'entregado', '2025-05-22 11:30:00', NULL , NULL , 2),
+                ('3a3f0070-d2ef-49d1-804a-9b9421aa147c','Entrega de metodologia', 'entregado', '2025-05-23 11:30:00', NULL , NULL , 2);
             `);
+
             //Documentos
             await queryRunner.query(`
                 INSERT INTO Alejandria.documento(id,nombre, ruta, subido_por, created_at, id_asunto)
                 VALUES
-                (1,'Introduccion.docx','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','estudiante','2025-05-01 10:00:00',1),
-                (2,'Justificacion.pdf','documentos/1751560728723-Downloads.rar','estudiante','2025-05-01 10:00:00',1),
-                (3,'Antecedentes.xslx','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','estudiante','2025-05-02 10:00:00',4),
-                (4,'Tesis_parcial.mp4','documentos/1751558207347-Alternativas-de-Seguridad-para-eCommerce-Samsung.pptx','estudiante','2025-05-10 09:00:00',2),
-                (6,'Justificacion_Corregida.jpeg','documentos/1751560819207-reunion-de-asesores-juridicos.jpeg','estudiante','2025-05-11 09:00:00',5),
-                (7,'Revision_Introduccion.png','documentos/1751558207347-Alternativas-de-Seguridad-para-eCommerce-Samsung.pptx','asesor','2025-05-14 16:00:00',1),
-                (8,'Revision_Justificacion.webp','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','asesor','2025-05-14 16:00:00',1),
-                (9,'Documento_Final.gif','documentos/1751560819207-reunion-de-asesores-juridicos.jpeg','estudiante','2025-05-20 11:30:00',3),
-                (10,'Objetivos_Generales.rar','documentos/1751558207347-Alternativas-de-Seguridad-para-eCommerce-Samsung.pptx','estudiante','2025-05-22 11:30:00',6),
-                (11,'Objetivos_Especificos.zip','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','estudiante','2025-05-22 11:30:00',6),
-                (12,'Metodologia_1ra_parte.7z', 'documentos/1751558207347-Alternativas-de-Seguridad-para-eCommerce-Samsung.pptx','estudiante','2025-05-23 11:30:00',7),
-                (13,'Entrega_Metodologia_v2.pdf','documentos/1751560728723-Downloads.rar','estudiante','2025-05-23 11:30:00',7),
-                (14,'Metricas_Metodologia.docx','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','estudiante','2025-05-23 11:30:00',7);
+                (1,'Introduccion.docx','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','estudiante','2025-05-01 10:00:00','5a7b1d0a-1f9a-4f0e-948d-51339c5b132e'),
+                (2,'Justificacion.pdf','documentos/1751560728723-Downloads.rar','estudiante','2025-05-01 10:00:00','5a7b1d0a-1f9a-4f0e-948d-51339c5b132e'),
+                (3,'Antecedentes.xslx','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','estudiante','2025-05-02 10:00:00','b9c5c481-9a1c-4977-bc42-b68b6fc476db'),
+                (4,'Tesis_parcial.mp4','documentos/1751558207347-Alternativas-de-Seguridad-para-eCommerce-Samsung.pptx','estudiante','2025-05-10 09:00:00','2d6f8b7a-3dc6-49e7-92f7-72fd64d6c422'),
+                (6,'Justificacion_Corregida.jpeg','documentos/1751560819207-reunion-de-asesores-juridicos.jpeg','estudiante','2025-05-11 09:00:00','d142e7e4-0e68-41b4-b8e4-e74de426383f'),
+                (7,'Revision_Introduccion.png','documentos/1751558207347-Alternativas-de-Seguridad-para-eCommerce-Samsung.pptx','asesor','2025-05-14 16:00:00','5a7b1d0a-1f9a-4f0e-948d-51339c5b132e'),
+                (8,'Revision_Justificacion.webp','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','asesor','2025-05-14 16:00:00','5a7b1d0a-1f9a-4f0e-948d-51339c5b132e'),
+                (9,'Documento_Final.gif','documentos/1751560819207-reunion-de-asesores-juridicos.jpeg','estudiante','2025-05-20 11:30:00','20ee1e91-6b31-4d34-8bb9-3f0e71628aa6'),
+                (10,'Objetivos_Generales.rar','documentos/1751558207347-Alternativas-de-Seguridad-para-eCommerce-Samsung.pptx','estudiante','2025-05-22 11:30:00','68bd671f-458b-4e0c-a6ce-cd09a0d3e5ac'),
+                (11,'Objetivos_Especificos.zip','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','estudiante','2025-05-22 11:30:00','68bd671f-458b-4e0c-a6ce-cd09a0d3e5ac'),
+                (12,'Metodologia_1ra_parte.7z','documentos/1751558207347-Alternativas-de-Seguridad-para-eCommerce-Samsung.pptx','estudiante','2025-05-23 11:30:00','3a3f0070-d2ef-49d1-804a-9b9421aa147c'),
+                (13,'Entrega_Metodologia_v2.pdf','documentos/1751560728723-Downloads.rar','estudiante','2025-05-23 11:30:00','3a3f0070-d2ef-49d1-804a-9b9421aa147c'),
+                (14,'Metricas_Metodologia.docx','documentos/1751557549104-TRABAJOINDIVIDUAL_1748533065552.docx','estudiante','2025-05-23 11:30:00','3a3f0070-d2ef-49d1-804a-9b9421aa147c');
             `);
+
 
             await queryRunner.query(`
                 INSERT INTO Alejandria.informacion_pagos(id,titulo,pago_total,tipo_pago,tipo_servicio,numero_cuotas,fecha_creado,id_asesoramiento)
@@ -317,7 +321,8 @@ export class Registros1746554350124 implements MigrationInterface {
           await queryRunner.query(`DELETE FROM Alejandria.cliente WHERE usuarioId IN (1,2, 3,4, 5, 6, 7, 8, 9, 10)`);
         
           // Eliminar usuarios
-          await queryRunner.query(`DELETE FROM Alejandria.usuarios WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)`);
+          await queryRunner.query(`DELETE FROM Alejandria.usuarios WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23)`);
+
         
           // Eliminar tipo_contrato
           await queryRunner.query(`DELETE FROM Alejandria.tipo_contrato WHERE id IN (1,2,3,4,5,6,7,8)`);

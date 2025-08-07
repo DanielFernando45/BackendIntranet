@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, BadRequestException, InternalServerErrorException, UploadedFiles, ParseIntPipe, Inject, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, BadRequestException, InternalServerErrorException, UploadedFiles, ParseIntPipe, Inject, UseGuards, ParseUUIDPipe, Put } from '@nestjs/common';
 import { AsuntosService } from './asuntos.service';
 import { CreateAsuntoDto } from './dto/create-asunto.dto';
 import { UpdateAsuntoDto } from './dto/update-asunto.dto';
@@ -43,7 +43,7 @@ export class AsuntosController {
   }
 
   @Patch("en_proceso/:id")
-  async toProcess(@Param('id',ParseIntPipe) id:number,@Body() body:ChangeToProcess){
+  async toProcess(@Param('id',new ParseUUIDPipe) id:string,@Body() body:ChangeToProcess){
     return await this.asuntosService.EstateToProcess(id,body)
   }
 
@@ -52,7 +52,7 @@ export class AsuntosController {
     fileFilter
     
   }))
-  async finishAsunto(@Param('id',ParseIntPipe) id:number,@Body() cambioAsunto:UpdateAsuntoDto,@UploadedFiles() files:Express.Multer.File[]){
+  async finishAsunto(@Param('id',new ParseUUIDPipe) id:string,@Body() cambioAsunto:UpdateAsuntoDto,@UploadedFiles() files:Express.Multer.File[]){
 
     if(!files || files.length===0)throw new BadRequestException("No se ha enviado archivos")
     try{
@@ -77,15 +77,15 @@ export class AsuntosController {
     return await this.asuntosService.getAll(id)
   }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateAsuntoDto: UpdateAsuntoDto) {
-  //   return this.asuntosService.update(+id, updateAsuntoDto);
-  // }
+  @Put(':id')
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateAsuntoDto: UpdateAsuntoDto) {
+    return this.asuntosService.updateAsunto(id, updateAsuntoDto);
+  }
 
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.asuntosService.remove(+id);
-  // }
+  @Delete(':id')
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.asuntosService.eliminarAsunto(id);
+  }
 
   @Get('fechasEstimadas/:id')
   fechasEstimadas(@Param('id',ParseIntPipe) id:number){
