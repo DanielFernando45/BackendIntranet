@@ -5,6 +5,7 @@ import { config } from 'dotenv';
 config({ path: path.resolve(__dirname, '../../.env') }); // Ajusta la ruta si es necesario
 
 export const AppDataSource = new DataSource({
+  logging: ['query', 'error'],
   type: 'mysql',
   host: process.env.DB_HOST,
   port: parseInt(process.env.DB_PORT || '3306'),

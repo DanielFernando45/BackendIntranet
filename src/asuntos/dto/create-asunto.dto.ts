@@ -7,11 +7,6 @@ export class CreateAsuntoDto {
     @IsString()
     titulo:string;
 
-    // @IsEnum(Estado_asunto)
-    // estado:Estado_asunto;
-
-    // @IsDateString()
-    // fecha_envio:Date;
     @IsEnum(Subido)
     subido_por:Subido;
 
@@ -22,6 +17,4 @@ export class CreateAsuntoDto {
     @IsOptional()
     @IsDate()
     fecha_entrega:Date;
-
-    
 }

@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateDocumentoDto } from './dto/create-documento.dto';
 import { UpdateDocumentoDto } from './dto/update-documento.dto';
 import { EntityManager, Repository } from 'typeorm';
@@ -14,116 +19,191 @@ import { BackbazeService } from 'src/backblaze/backblaze.service';
 @Injectable()
 export class DocumentosService {
   constructor(
-    private readonly backblazeService:BackbazeService,
+    private readonly backblazeService: BackbazeService,
 
     @InjectRepository(Documento)
-    private documentoRepo:Repository<Documento>
-  ){}
-  
+    private documentoRepo: Repository<Documento>,
+  ) { }
 
-  getFile(path:string){
-    const pathFile=join(__dirname,'../../../static/documents',path)
-    console.log(pathFile)
-  
-    if(!existsSync(pathFile)) throw new BadRequestException("No hay ese archivo con ese ID")
-    return pathFile
+  getFile(path: string) {
+    const pathFile = join(__dirname, '../../../static/documents', path);
+    console.log(pathFile);
+
+    if (!existsSync(pathFile))
+      throw new BadRequestException('No hay ese archivo con ese ID');
+    return pathFile;
   }
 
-
-  async addedDocumentByClient(nombreDocumento:string,secureUrl: string,id:string,manager:EntityManager) {
-    try{
-      if (!nombreDocumento || typeof nombreDocumento !== 'string' || nombreDocumento.trim().length === 0) {
-        throw new BadRequestException('nombreDocumento es obligatorio y debe ser un texto no vacío');
+  async addedDocumentByClient(
+    nombreDocumento: string,
+    secureUrl: string,
+    id: string,
+    manager: EntityManager,
+  ) {
+    try {
+      console.log("nombreDocumento:",nombreDocumento)
+      console.log("secureUrl:",secureUrl)
+      console.log("idAsunto:",id)
+      if (
+        !nombreDocumento ||
+        typeof nombreDocumento !== 'string' ||
+        nombreDocumento.trim().length === 0
+      ) {
+        throw new BadRequestException(
+          'nombreDocumento es obligatorio y debe ser un texto no vacío',
+        );
       }
 
-      if (!secureUrl || typeof secureUrl !== 'string' || secureUrl.trim().length === 0) {
-        throw new BadRequestException('secureUrl es obligatorio y debe ser un texto no vacío');
+      if (
+        !secureUrl ||
+        typeof secureUrl !== 'string' ||
+        secureUrl.trim().length === 0
+      ) {
+        throw new BadRequestException(
+          'secureUrl es obligatorio y debe ser un texto no vacío',
+        );
       }
-      const newDocument=manager.create(Documento,{nombre:nombreDocumento,ruta:secureUrl,subido_por:Subido.ESTUDIANTE,created_at:new Date(),asunto:{id}})
-      const response=await manager.save(newDocument)
-      return response
-    }catch(err){
-      return new InternalServerErrorException(`Error al agregar el documento ${err.message}`)
+      const newDocument = manager.create(Documento, {
+        nombre: nombreDocumento,
+        ruta: secureUrl,
+        subido_por: Subido.ESTUDIANTE,
+        created_at: new Date(),
+        asunto: { id },
+      });
+      const response = await manager.save(newDocument);
+      console.log(response)
+      console.log("OK")
+      return response;
+    } catch (err) {
+      return new InternalServerErrorException(
+        `Error al agregar el documento ${err.message}`,
+      );
     }
   }
 
-  async findDocuments(id:number,subido_por:Subido){
-    const listDocuments=await this.documentoRepo
+  async findDocuments(id: number, subido_por: Subido) {
+    const listDocuments = await this.documentoRepo
       .createQueryBuilder('d')
-      .innerJoinAndSelect('d.asunto','a')
-      .innerJoin('a.asesoramiento','as')
+      .innerJoinAndSelect('d.asunto', 'a')
+      .innerJoin('a.asesoramiento', 'as')
       .select([
         'a.id AS id_asunto',
         'd.nombre AS nombre',
         'a.titulo AS asunto',
         'a.estado AS estado',
-         'd.ruta AS ruta',
-         'a.fecha_entregado AS fecha_entregado',
-         'a.fecha_revision AS fecha_revision',
-         'a.fecha_terminado AS fecha_terminado',
-        ])
-        .where("as.id= :id",{id})
-        .andWhere("d.subido_por=:subido_por",{subido_por})
-        .orderBy('a.id', 'ASC')       
-        .addOrderBy('d.created_at', 'ASC')
-        .getRawMany()
-        
-      if(listDocuments.length===0)throw new NotFoundException("No se encontro el documento")
-      const arreglo: asuntoFileDto[] = [];
+        'd.ruta AS ruta',
+        'a.fecha_entregado AS fecha_entregado',
+        'a.fecha_revision AS fecha_revision',
+        'a.fecha_terminado AS fecha_terminado',
+      ])
+      .where('as.id= :id', { id })
+      .andWhere('d.subido_por=:subido_por', { subido_por })
+      .orderBy('a.id', 'ASC')
+      .addOrderBy('d.created_at', 'ASC')
+      .getRawMany();
 
-      
-      for (const document of listDocuments) {
-      const ruta_documento=await this.backblazeService.getSignedUrl(document['ruta'])
+    if (listDocuments.length === 0)
+      throw new NotFoundException('No se encontro el documento');
+    const arreglo: asuntoFileDto[] = [];
+
+    for (const document of listDocuments) {
+      const ruta_documento = await this.backblazeService.getSignedUrl(
+        document['ruta'],
+      );
       const asunto = document['asunto'];
       const idAsunto = document['id_asunto'];
 
-      let index = arreglo.findIndex((item: any) => item['id_asunto'] === idAsunto);
-      
+      let index = arreglo.findIndex(
+        (item: any) => item['id_asunto'] === idAsunto,
+      );
+
       let estado = document['estado'] || 'null';
-let fecha: string;
+      let fecha: string;
 
-if (estado === 'terminado') {
-  fecha = document['fecha_terminado'];
-} else if (estado === 'proceso') {
-  fecha = document['fecha_revision'];
-} else if (estado === 'entregado') {
-  fecha = document['fecha_entregado'];
-} else {
-  fecha = new Date().toISOString(); // Valor por defecto si no hay fecha específica
-}
+      if (estado === 'terminado') {
+        fecha = document['fecha_terminado'];
+      } else if (estado === 'proceso') {
+        fecha = document['fecha_revision'];
+      } else if (estado === 'entregado') {
+        fecha = document['fecha_entregado'];
+      } else {
+        fecha = new Date().toISOString(); // Valor por defecto si no hay fecha específica
+      }
 
-if (index === -1) {
-  // Nuevo asunto
-  arreglo.push({
-    id_asunto: idAsunto,
-    asunto,
-    estado,
-    fecha, // ✅ ya lo tienes
-    nombreDoc1: document['nombre'],
-    ruta1: ruta_documento,
-  });
-    } else {
-      
-      const count = Object.keys(arreglo[index]).filter((key) => key.startsWith('nombreDoc')).length + 1;
+      if (index === -1) {
+        // Nuevo asunto
+        arreglo.push({
+          id_asunto: idAsunto,
+          asunto,
+          estado,
+          fecha, // ✅ ya lo tienes
+          nombreDoc1: document['nombre'],
+          ruta1: ruta_documento,
+        });
+      } else {
+        const count =
+          Object.keys(arreglo[index]).filter((key) =>
+            key.startsWith('nombreDoc'),
+          ).length + 1;
 
-      arreglo[index][`nombreDoc${count}`] = document['nombre'];
-      arreglo[index][`ruta${count}`] = ruta_documento;
-      
+        arreglo[index][`nombreDoc${count}`] = document['nombre'];
+        arreglo[index][`ruta${count}`] = ruta_documento;
+      }
     }
-  };
 
-  return arreglo;
+    return arreglo;
+  }
 
-  } 
-
-  async finallyDocuments(id:string,dataFiles:archivosDataDto,manager:EntityManager){
-    try{
-      const newDocument=manager.create(Documento,{nombre:dataFiles.nombreDocumento,ruta:dataFiles.directorio,subido_por:Subido.ASESOR,created_at:new Date(),asunto:{id}})
-      const response=await manager.save(newDocument)
-      return response
-    }catch(err){
-      return new InternalServerErrorException(`Error al agregar el documento ${err.message}`)
+  async finallyDocuments(
+    id: string,
+    dataFiles: archivosDataDto,
+    manager: EntityManager,
+  ) {
+    try {
+      const newDocument = manager.create(Documento, {
+        nombre: dataFiles.nombreDocumento,
+        ruta: dataFiles.directorio,
+        subido_por: Subido.ASESOR,
+        created_at: new Date(),
+        asunto: { id },
+      });
+      const response = await manager.save(newDocument);
+      return response;
+    } catch (err) {
+      return new InternalServerErrorException(
+        `Error al agregar el documento ${err.message}`,
+      );
     }
   }
 
+  async deleteDocumentosByIdAsunto(id: string) {
+    try {
+
+      const documentos = await this.documentoRepo.createQueryBuilder()
+        .where('id_asunto = :id', { id })
+        .select('ruta')
+        .execute();
+
+      if (documentos.length == 0)
+        return 'No hay documentos'
+
+      // Logica para eliminarlos en blackblaze
+      const listarDocumentosBlackBlaze = await Promise.all(documentos.map(async (doc) => {
+        const documentosEliminados = await this.backblazeService.deleteFile(doc.ruta)
+        console.log(documentosEliminados)
+      }))
+
+      const documentosEliminados = await this.documentoRepo
+        .createQueryBuilder()
+        .delete()
+        .where('id_asunto = :id', { id })
+        .execute();
+      return documentosEliminados.affected ?? 0;
+      // return (documentosEliminados.affected && documentosEliminados.affected > 0) ? true : false;
+
+    } catch (error) {
+      console.error('Error al eliminar documentos:', error);
+      throw new Error('No se pudieron eliminar los documentos relacionados.');
+    }
+  }
 }

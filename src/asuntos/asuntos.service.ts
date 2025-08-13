@@ -20,6 +20,7 @@ import { BackbazeService } from 'src/backblaze/backblaze.service';
 import { DIRECTORIOS } from 'src/backblaze/directorios.enum';
 import { v4 as uuidv4 } from 'uuid';
 import { UpdateAsuntoDto } from './dto/update-asunto.dto';
+import { Documento } from 'src/documentos/entities/documento.entity';
 
 @Injectable()
 export class AsuntosService {
@@ -32,9 +33,12 @@ export class AsuntosService {
     @InjectRepository(Asunto)
     private asuntoRepo: Repository<Asunto>,
 
+    @InjectRepository(Documento)
+    private documentoRepo: Repository<Documento>,
+
     @InjectDataSource()
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
   async create(
     createAsuntoDto: CreateAsuntoDto,
     files: Express.Multer.File[],
@@ -177,6 +181,7 @@ export class AsuntosService {
       where: { estado: Estado_asunto.TERMINADO, asesoramiento: { id } },
       order: { fecha_entregado: 'DESC' },
       select: [
+        'id',
         'titulo',
         'fecha_entregado',
         'fecha_revision',
@@ -184,7 +189,7 @@ export class AsuntosService {
         'estado',
       ],
     });
-
+    console.log(listFinished)
     if (!listFinished || listFinished.length === 0)
       throw new NotFoundException('No hay asuntos terminados.');
 
@@ -202,6 +207,7 @@ export class AsuntosService {
     }
     const response: listFinished[] = listFinished.map((asunto) => {
       return {
+        id: asunto.id,
         titulo: asunto.titulo,
         fecha_entregado: asunto.fecha_entregado,
         fecha_proceso: asunto.fecha_revision,
@@ -242,6 +248,7 @@ export class AsuntosService {
     let contador_alumnos = 0;
     let contador_columnas = -1;
 
+    console.log(listAll)
     for (let i = 0; i < listAll.length; i++) {
       const documento = listAll[i];
 
@@ -420,14 +427,77 @@ export class AsuntosService {
     return responseAsuntos;
   }
 
-  async updateAsunto(id: string, updateAsuntoDto: UpdateAsuntoDto) {
+  async updateAsunto(id: string, updateAsuntoDto: UpdateAsuntoDto, files: Express.Multer.File[],) {
     const asunto = await this.asuntoRepo.findOne({ where: { id } });
 
     if (!asunto)
       throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
 
-    const updateAsunto = await this.asuntoRepo.update(id, updateAsuntoDto);
-    return updateAsunto;
+    const idsArray = JSON.parse(updateAsuntoDto.idsElminar);
+    if (idsArray.length > 0) {
+      console.log('entro')
+      // PRIMERO ELIMINAMOS LOS ARCHIVOS EN EL BLACK BLAZE
+
+      // Obtenemos todos los IDS que vengan en el idsEliminar o solo recogemos el campo rutas
+      // En el blackblaze se identifica los archivos por las rutas
+      const documentos = await this.documentoRepo.createQueryBuilder()
+        .where('id IN (:...ids)', { ids: idsArray })
+        .select('ruta')
+        .execute();
+      console.log(documentos)
+      await Promise.all(documentos.map(async (doc) => {
+        const documentosEliminados = await this.backblazeService.deleteFile(doc.ruta)
+        console.log(documentosEliminados)
+      }))
+
+      // UNA VEZ ELIMINADO LOS DOC RELACIONADOS EN EL BB YA PODEMOS BORRAR LOS REGISTROS DE LA BD
+      await this.documentoRepo.createQueryBuilder()
+        .delete()
+        .where('id IN (:...ids)', { ids: idsArray })
+        .execute()
+    }
+
+
+    // VALIDAR CONDICIONALMENTE QUE EXISTE FILES 
+    if (files && files.length > 0) {
+      // const queryRunner = this.dataSource.createQueryRunner();
+      // await queryRunner.connect();
+      // await queryRunner.startTransaction();
+
+      const listNombres = await Promise.all(
+        files.map(async (file) => {
+          return await this.backblazeService.uploadFile(
+            file,
+            DIRECTORIOS.DOCUMENTOS,
+          );
+        }),
+      );
+
+      const resp = await this.documentoRepo
+        .createQueryBuilder()
+        .insert()
+        .into(Documento)
+        .values(
+          listNombres.map((nameFile) => {
+            const nombre = nameFile.split('/')[1];
+            return {
+              nombre,
+              ruta: nameFile,
+              subido_por: updateAsuntoDto.subido_por, // o el valor que corresponda
+              created_at: new Date(),
+              asunto: { id }, // Relación ManyToOne
+            };
+          })
+        )
+        .printSql() // <--- imprime la query antes de ejecutarla
+        .execute();
+      // const resp =  await this.create({ titulo: updateAsuntoDto.titulo, subido_por: updateAsuntoDto.subido_por } as CreateAsuntoDto , files, updateAsuntoDto.idAsesoramiento);
+      // console.log("respuesta: ", resp);
+      return {
+        statusCode: 200,
+        success: true,
+      }
+    }
   }
 
   async eliminarAsunto(id: string) {
@@ -436,15 +506,74 @@ export class AsuntosService {
     if (!asunto)
       throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
 
+    const documentosEliminados =
+      await this.documentosService.deleteDocumentosByIdAsunto(id);
+    if (!documentosEliminados)
+      throw new NotFoundException(
+        `No se pudo eliminar los documentos con el asunto ${id}`,
+      );
+
     await this.asuntoRepo.delete(id);
-    
+
     return {
       statusCode: 200,
       success: true,
-      data: {
-        id: asunto.id,
-      },
+      // documentosEliminados,
       message: `El asunto con el id ${id} ha sido eliminado correctamente.`,
     };
+  }
+
+  async getAsuntoById(id: string) {
+    console.log(id);
+    const asunto = await this.asuntoRepo.findOne({
+      where: { id },
+      relations: ['asesoramiento', 'documentos'],
+    });
+
+    if (!asunto)
+      throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
+
+    return {
+      statusCode: 200,
+      success: true,
+      asunto,
+    };
+  }
+
+  async getAsuntosTerminadosAsesor(id: string) {
+    console.log("getAsuntosTerminadosAsesor")
+
+    const asunto = await this.asuntoRepo.createQueryBuilder('asun')
+    .leftJoinAndSelect('asun.asesoramiento','ase')
+    .leftJoinAndSelect('asun.documentos','doc','doc.subido_por = :subidoPor',{subidoPor: 'asesor'})
+    .where('asun.id =:id', {id})
+    .getOne()
+
+    if (!asunto)
+      throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
+
+    return {
+      statusCode: 200,
+      success: true,
+      asunto,
+    };
+  }
+
+  async editarFechaAsuntoPendiente (id: string, body: any) {
+    console.log(id)
+    console.log(body.horario)
+
+    const asunto = await this.asuntoRepo.createQueryBuilder()
+      .update()
+      .set({fecha_terminado: body.horario})
+      .where('id = :id', {id})
+      .execute()
+
+    console.log(asunto.affected ? 'Actualizado' : 'No se actualizo')
+
+    return {
+      status: 200,
+      success: true
+    }
   }
 }
