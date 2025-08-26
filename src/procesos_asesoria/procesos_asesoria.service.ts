@@ -133,6 +133,27 @@ export class ProcesosAsesoriaService {
     return delegadoByAsesoramiento;
   }
 
+
+  async getListadoInducciones(id_asesor: number) {
+   const listadoInducciones = await this.procesosAsesoriaRepo
+      .createQueryBuilder('pr')
+      .innerJoin('pr.cliente', 'c')
+      .innerJoin('pr.asesor', 'as')
+      .innerJoin('pr.asesoramiento','a')
+      .select([
+        'pr.id_asesoramiento AS asesoriaId',
+        "concat(c.nombre, ' ', c.apellido) AS cliente",
+        'a.profesion_asesoria AS referenciaAsesoria',
+        'a.fecha_inicio AS fechaAsignacion',
+      ])
+      .where('as.id = :id', { id: id_asesor })
+      .andWhere('pr.esDelegado = true')
+      .getRawOne();
+      if(!listadoInducciones )
+        throw new InternalServerErrorException('No hay inducciones asignadas');
+      return listadoInducciones;
+  }   
+
   async getDelegadoAndIdAsesoramiento(
     id_asesor: number,
     manager: EntityManager,

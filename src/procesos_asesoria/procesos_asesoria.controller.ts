@@ -24,6 +24,11 @@ export class ProcesosAsesoriaController {
     return this.procesosAsesoriaService.getDelegadoByIdAsesoramiento(id);
   }
 
+  @Get('listadoInducciones/:id')
+  getListadoInducciones(@Param('id', ParseIntPipe) id: number) {
+    return this.procesosAsesoriaService.getListadoInducciones(id);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateProcesosAsesoriaDto: UpdateProcesosAsesoriaDto) {
     return this.procesosAsesoriaService.update(+id, updateProcesosAsesoriaDto);
