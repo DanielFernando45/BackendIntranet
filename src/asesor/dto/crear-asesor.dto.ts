@@ -25,7 +25,7 @@ export class createAsesorDto{
     readonly url_imagen:string;
 
     @IsNumber()
-    readonly areaAsesor:number;
+    readonly area: string;
 
     @IsString()
     readonly especialidad:string;

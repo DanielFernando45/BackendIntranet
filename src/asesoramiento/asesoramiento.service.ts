@@ -20,6 +20,7 @@ import { DatosAsesoramientoDto } from 'src/cliente/dto/listar-clientes.dto';
 import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
 import { ClienteService } from 'src/cliente/cliente.service';
 import { listAsesoramientoYDelegadoDto } from './dto/list-asesoramiento-delegado.dto';
+import { Contrato } from 'src/contrato/entities/contrato.entity';
 
 @Injectable()
 export class AsesoramientoService {
@@ -126,51 +127,51 @@ export class AsesoramientoService {
     }
   }
 
-  async findDatesByCliente(id: number): Promise<DatosAsesoramientoDto> {
+  async findDatesByCliente(id: number): Promise<any> {
     const datosAsesoramiento = await this.asesoramientoRepo
       .createQueryBuilder('a') // Alias para la tabla asesoramiento
       .innerJoin('a.procesosasesoria', 'p') // Relación con la tabla procesos_asesoria
       .innerJoin('p.cliente', 'c') // Relación con la tabla cliente
       .leftJoinAndSelect('a.tipoContrato', 'tc')
       .select(['a.fecha_inicio', 'a.fecha_fin', 'tc.id', 'tc.nombre']) // Selecciona las columnas que deseas
-      .where('c.id = :id', { id }) // Filtra por el id del cliente
+      .where('c.id = :id', { id })
       .getOne();
 
-    const solo_fechas = {
-      contrato: datosAsesoramiento
-        ? {
-            id: datosAsesoramiento.tipoContrato.id,
-            nombre: datosAsesoramiento.tipoContrato.nombre,
-          }
-        : { message: 'Por asignar' },
-      fecha_inicio: datosAsesoramiento
-        ? datosAsesoramiento.fecha_inicio
-        : 'Por asignar',
-      fecha_fin: datosAsesoramiento
-        ? datosAsesoramiento.fecha_fin
-        : 'Por asignar',
-    };
-    console.log(solo_fechas);
-    return solo_fechas;
+    // const solo_fechas = {
+    //   contrato: datosAsesoramiento
+    //     ? {
+    //         id: datosAsesoramiento.tipoContrato.id,
+    //         // nombre: datosAsesoramiento.tipoContrato.nombre,
+    //       }
+    //     : { message: 'Por asignar' },
+    //   fecha_inicio: datosAsesoramiento
+    //     ? "Sin fecha"
+    //     : 'Por asignar',
+    //   fecha_fin: datosAsesoramiento
+    //     ? "Sin fecha"
+    //     : 'Por asignar',
+    // };
+    return datosAsesoramiento;
   }
 
   async changeAsesoramiento(id: number, cambios: UpdateAsesoramientoDto) {
-    if (!Object.keys(cambios).length)
-      throw new BadRequestException('No se envio un body para actualizar');
+    // if (!Object.keys(cambios).length)
+    //   throw new BadRequestException('No se envio un body para actualizar');
 
-    const partialEntity: any = { ...cambios };
+    // const partialEntity: any = { ...cambios };
 
-    const updateAsesoramiento = await this.asesoramientoRepo.update(
-      id,
-      cambios,
-    );
-    if (updateAsesoramiento.affected === 0)
-      throw new NotFoundException('No hay registro a afectar');
-    return `Se cambio el asesor correctamente por el de ID ${id}`;
+    // const updateAsesoramiento = await this.asesoramientoRepo.update(
+    //   id,
+    //   cambios,
+    // );
+    // if (updateAsesoramiento.affected === 0)
+    //   throw new NotFoundException('No hay registro a afectar');
+    // return `Se cambio el asesor correctamente por el de ID ${id}`;
   }
 
   async changeState(id: number) {
     const estado_asesoria = await this.asesoramientoRepo.findOneBy({ id });
+    console.log(estado_asesoria)
     if (estado_asesoria?.estado === 'activo') {
       const desactAsesoria = await this.asesoramientoRepo.update(id, {
         estado: Estado_Asesoria.DESACTIVADO,
@@ -198,71 +199,41 @@ export class AsesoramientoService {
   }
 
   async listar() {
-    // 1. Obtener asesoramientos únicos con su delegado
-    // const asesoramientos = await this.asesoramientoRepo
-    //   .createQueryBuilder('a')
-    //   .innerJoin('a.tipoTrabajo', 't')
-    //   .innerJoin('a.procesosasesoria', 'p')
-    //   .innerJoin('p.cliente', 'c')
-    //   .innerJoin('p.asesor', 'ase')
-    //   .innerJoin('p.area', 'ar')
-    //   .select([
-    //     'a.id AS id_asesoramiento',
-    //     'a.fecha_inicio AS fecha_inicio',
-    //     'a.estado AS estado',
-    //     'a.profesion_asesoria AS profesion_asesoria',
-    //     't.nombre AS tipo_trabajo',
-    //     'ase.id AS id_asesor',
-    //     "CONCAT(ase.nombre, ' ', ase.apellido) AS asesor",
-    //     'ar.nombre AS area',
-    //     'c.id AS id_delegado',
-    //     "CONCAT(c.nombre, ' ', c.apellido) AS delegado",
-    //   ])
-    //   .where('p.esDelegado = 1')
-    //   .getRawMany();
-
-    const asesoramientos = await this.dataSource.query(`
-      SELECT 
-      a.id AS id_asesoramiento,
-      a.fecha_inicio AS fecha_inicio,
-      a.fecha_fin as fecha_fin,
-      a.estado AS estado,
-      a.profesion_asesoria AS profesion_asesoria,
-      t.nombre AS tipo_trabajo,
-      ase.id AS id_asesor,
-      CONCAT(ase.nombre, ' ', ase.apellido) AS asesor,
-      c.id AS id_delegado,
-      CONCAT(c.nombre, ' ', c.apellido) AS delegado,
-      ar.nombre AS area
-    FROM 
-      asesoramiento a
-    INNER JOIN 
-      tipo_trabajo t ON a.id_tipo_trabajo  = t.id
-    INNER JOIN 
-      procesos_asesoria p ON p.id_asesoramiento  = a.id
-    INNER JOIN 
-      cliente c ON p.id_cliente  = c.id
-    INNER JOIN 
-    asesor as ase ON ase.id = p.id_asesor
-    INNER JOIN 
-    area_asesor as ar ON ar.id = ase.id_area 
-    WHERE p.esDelegado = 1;
-  `);
+  const asesoramientos = await this.dataSource.getRepository(Contrato).createQueryBuilder('c')
+  .select([
+    'DISTINCT c.id AS id_contrato',
+    'c.servicio AS servicio',
+    'c.modalidad AS modalidad',
+    'c.fecha_inicio AS fecha_inicio',
+    'c.fecha_fin AS fecha_fin',
+    'a.id AS id_asesoramiento',
+    'a.profesion_asesoria AS profesion_asesoria',
+    'aa.nombre AS area',
+    "CONCAT(cli.nombre ,' ', cli.apellido) AS delegado",
+  ])
+  .innerJoin('c.asesoramiento','a')
+  .innerJoin('a.procesosasesoria', 'p')
+  .innerJoin('p.asesor', 'ase')
+  .innerJoin('ase.areaAsesor', 'aa')
+  .innerJoin('p.cliente', 'cli')
+  .where('p.esDelegado = 1')
+  .orderBy('id_asesoramiento', 'ASC')
+  .getRawMany();
     console.log(asesoramientos);
     //Obtenemos los estudiantes por el id asesoramiento
-    const asesoramientosWithEstudiantes = await Promise.all(
-      asesoramientos.map(async (asesoramiento) => {
-        const estudiantes =
-          (await this.clienteService.listAllByAsesoramiento(
-            asesoramiento.id_asesoramiento,
-          )) || [];
-        return {
-          ...asesoramiento,
-          estudiantes,
-        };
-      }),
-    );
-    return asesoramientosWithEstudiantes;
+    // const asesoramientosWithEstudiantes = await Promise.all(
+    //   asesoramientos.map(async (asesoramiento) => {
+    //     const estudiantes =
+    //       (await this.clienteService.listAllByAsesoramiento(
+    //         asesoramiento.asesoramiento.id,
+    //       )) || [];
+    //     return {
+    //       ...asesoramiento,
+    //       estudiantes,
+    //     };
+    //   }),
+    // );
+    return asesoramientos;
   }
 
   async listar_por_id(id: number) {
@@ -393,117 +364,117 @@ export class AsesoramientoService {
     // console.log("ID",id)
     // console.log("Update asesoramientoDto",updateAsesoramientoDto)
     // console.log("Clientes",clientes)
-    let id_asesor;
-    console.log(clientes)
-    if (updateAsesoramientoDto.id_asesor !== undefined) {
-      id_asesor = updateAsesoramientoDto.id_asesor;
-      delete updateAsesoramientoDto.id_asesor;
-    }
+    // let id_asesor;
+    // console.log(clientes)
+    // if (updateAsesoramientoDto.id_asesor !== undefined) {
+    //   id_asesor = updateAsesoramientoDto.id_asesor;
+    //   delete updateAsesoramientoDto.id_asesor;
+    // }
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    // const queryRunner = this.dataSource.createQueryRunner();
+    // await queryRunner.connect();
+    // await queryRunner.startTransaction();
 
-    try {
-      if (
-        updateAsesoramientoDto.fecha_inicio &&
-        updateAsesoramientoDto.fecha_fin
-      ) {
-        if (
-          updateAsesoramientoDto.fecha_fin < updateAsesoramientoDto.fecha_inicio
-        ) {
-          throw new BadRequestException(
-            'La fecha de fin no puede ser anterior a la fecha de inicio',
-          );
-        }
-      }
-      const updated = { ...updateAsesoramientoDto };
-      if (updateAsesoramientoDto.id_contrato) {
-        delete updated.id_contrato;
-        updated['tipoContrato'] = { id: updateAsesoramientoDto.id_contrato };
-      }
+    // try {
+    //   if (
+    //     updateAsesoramientoDto.fecha_inicio &&
+    //     updateAsesoramientoDto.fecha_fin
+    //   ) {
+    //     if (
+    //       updateAsesoramientoDto.fecha_fin < updateAsesoramientoDto.fecha_inicio
+    //     ) {
+    //       throw new BadRequestException(
+    //         'La fecha de fin no puede ser anterior a la fecha de inicio',
+    //       );
+    //     }
+    //   }
+    //   const updated = { ...updateAsesoramientoDto };
+    //   if (updateAsesoramientoDto.id_contrato) {
+    //     delete updated.id_contrato;
+    //     updated['tipoContrato'] = { id: updateAsesoramientoDto.id_contrato };
+    //   }
 
-      if (updateAsesoramientoDto.id_tipo_trabajo) {
-        delete updated.id_tipo_trabajo;
-        updated['tipoTrabajo'] = { id: updateAsesoramientoDto.id_tipo_trabajo };
-      }
+    //   if (updateAsesoramientoDto.id_tipo_trabajo) {
+    //     delete updated.id_tipo_trabajo;
+    //     updated['tipoTrabajo'] = { id: updateAsesoramientoDto.id_tipo_trabajo };
+    //   }
 
-      await queryRunner.manager.update(Asesoramiento, { id }, { ...updated });
+    //   await queryRunner.manager.update(Asesoramiento, { id }, { ...updated });
 
-      const clienteIds: number[] = Object.values(clientes).filter(
-        (id) => typeof id === 'number' && id > 0,
-      );
+    //   const clienteIds: number[] = Object.values(clientes).filter(
+    //     (id) => typeof id === 'number' && id > 0,
+    //   );
 
-      // console.log("ClientesId ",clienteIds)
+    //   // console.log("ClientesId ",clienteIds)
 
-      if (clienteIds.length === 0) {
-        throw new BadRequestException(
-          'Debe proporcionar al menos un cliente válido',
-        );
-      }
+    //   if (clienteIds.length === 0) {
+    //     throw new BadRequestException(
+    //       'Debe proporcionar al menos un cliente válido',
+    //     );
+    //   }
 
-      const procesosActuales = await queryRunner.manager.find(
-        ProcesosAsesoria,
-        {
-          where: { asesoramiento: { id } },
-          order: { id: 'ASC' }, // Importante para que se mantenga el orden y se puedan comparar
-        },
-      );
+    //   const procesosActuales = await queryRunner.manager.find(
+    //     ProcesosAsesoria,
+    //     {
+    //       where: { asesoramiento: { id } },
+    //       order: { id: 'ASC' }, // Importante para que se mantenga el orden y se puedan comparar
+    //     },
+    //   );
 
-      // console.log("Proceso actuales: ",procesosActuales)
+    //   // console.log("Proceso actuales: ",procesosActuales)
 
-      const cantidadActual = procesosActuales.length;
-      const cantidadNueva = clienteIds.length;
+    //   const cantidadActual = procesosActuales.length;
+    //   const cantidadNueva = clienteIds.length;
 
-      const cantidadActualizar = Math.min(cantidadActual, cantidadNueva);
+    //   const cantidadActualizar = Math.min(cantidadActual, cantidadNueva);
 
-      let esDelegado = false;
-      for (let i = 0; i < cantidadActualizar; i++) {
-        esDelegado = i == 0 ? true : false;
-        console.log("clientes: ",clientes)
-        await this.procesosAsesoriaService.actualizar_registros_por_Asesoramiento(
-          id,
-          clienteIds[i],
-          id_asesor,
-          esDelegado,
-          queryRunner.manager,
-          procesosActuales[i].id,
-        );
-      }
+    //   let esDelegado = false;
+    //   for (let i = 0; i < cantidadActualizar; i++) {
+    //     esDelegado = i == 0 ? true : false;
+    //     console.log("clientes: ",clientes)
+    //     await this.procesosAsesoriaService.actualizar_registros_por_Asesoramiento(
+    //       id,
+    //       clienteIds[i],
+    //       id_asesor,
+    //       esDelegado,
+    //       queryRunner.manager,
+    //       procesosActuales[i].id,
+    //     );
+    //   }
 
-      // 5. Agregar nuevos si hay más clientes
-      if (cantidadNueva > cantidadActualizar) {
-        for (let i = cantidadActualizar; i < cantidadNueva; i++) {
-          esDelegado = i == 0 ? true : false;
-          await this.procesosAsesoriaService.crear_registro_por_Asesoramiento(
-            id,
-            clienteIds[i],
-            id_asesor,
-            esDelegado,
-            queryRunner.manager,
-          );
-        }
-      }
-      // 6. Eliminar registros sobrantes si hay menos clientes
-      if (cantidadNueva < cantidadActual) {
-        for (let i = cantidadNueva; i < cantidadActual; i++) {
-          await queryRunner.manager.delete(
-            ProcesosAsesoria,
-            procesosActuales[i].id,
-          );
-        }
-      }
+    //   // 5. Agregar nuevos si hay más clientes
+    //   if (cantidadNueva > cantidadActualizar) {
+    //     for (let i = cantidadActualizar; i < cantidadNueva; i++) {
+    //       esDelegado = i == 0 ? true : false;
+    //       await this.procesosAsesoriaService.crear_registro_por_Asesoramiento(
+    //         id,
+    //         clienteIds[i],
+    //         id_asesor,
+    //         esDelegado,
+    //         queryRunner.manager,
+    //       );
+    //     }
+    //   }
+    //   // 6. Eliminar registros sobrantes si hay menos clientes
+    //   if (cantidadNueva < cantidadActual) {
+    //     for (let i = cantidadNueva; i < cantidadActual; i++) {
+    //       await queryRunner.manager.delete(
+    //         ProcesosAsesoria,
+    //         procesosActuales[i].id,
+    //       );
+    //     }
+    //   }
 
-      await queryRunner.commitTransaction();
-      return 'Actualizado satisfactoriamente';
-    } catch (err) {
-      queryRunner.rollbackTransaction();
-      throw new InternalServerErrorException(
-        `No se puede actualizar completemente,cancelando cambios se presta este error ${err}`,
-      );
-    } finally {
-      await queryRunner.release();
-    }
+    //   await queryRunner.commitTransaction();
+    //   return 'Actualizado satisfactoriamente';
+    // } catch (err) {
+    //   queryRunner.rollbackTransaction();
+    //   throw new InternalServerErrorException(
+    //     `No se puede actualizar completemente,cancelando cambios se presta este error ${err}`,
+    //   );
+    // } finally {
+    //   await queryRunner.release();
+    // }
   }
 
   async remove(id: number) {
@@ -605,19 +576,22 @@ export class AsesoramientoService {
   }
 
   async contratoDelAsesoramiento(id: number) {
-    const datosContrato = await this.asesoramientoRepo.findOne({
+     const datosContrato = await this.asesoramientoRepo.findOne({
       where: { id },
-      relations: ['tipoContrato'],
-      select: ['id', 'fecha_inicio', 'fecha_fin'],
     });
-    if (!datosContrato)
-      throw new NotFoundException(
-        'No hay un contrato con ese id de asesoramiento',
-      );
-    if (!datosContrato.tipoContrato)
-      throw new NotFoundException(
-        'No se encontró un tipo de contrato asociado al asesoramiento',
-      );
+    // const datosContrato = await this.asesoramientoRepo.findOne({
+    //   where: { id },
+    //   relations: ['tipoContrato'],
+    //   select: ['id', 'fecha_inicio', 'fecha_fin'],
+    // });
+    // if (!datosContrato)
+    //   throw new NotFoundException(
+    //     'No hay un contrato con ese id de asesoramiento',
+    //   );
+    // if (!datosContrato.tipoContrato)
+    //   throw new NotFoundException(
+    //     'No se encontró un tipo de contrato asociado al asesoramiento',
+    //   );
 
     return datosContrato;
   }
@@ -734,7 +708,7 @@ export class AsesoramientoService {
   async fecha_vencimiento_contrato(id) {
     const fechaVencimiento = await this.asesoramientoRepo.findOne({
       where: { id },
-      select: ['fecha_fin'],
+      // select: ['fecha_fin']
     });
     if (!fechaVencimiento)
       throw new NotFoundException('No se encontro un asesoramiento con ese id');

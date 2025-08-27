@@ -24,28 +24,9 @@ export class Asesoramiento {
     @Column()
     profesion_asesoria:string;
 
-    @Column({ nullable: true })
-    especialidad:string;
-
-    @Column({type:'enum',enum:Tipo_Servicio})
-    tipo_servicio:Tipo_Servicio;
-
-    @ManyToOne(()=>TipoTrabajo)
-    @JoinColumn({name:'id_tipo_trabajo'})
-    tipoTrabajo:TipoTrabajo;
-
-    @ManyToOne(()=>TipoContrato)
-    @JoinColumn({name:'id_contrato'})
-    tipoContrato:TipoContrato;
-
     @Column({type:'enum',enum:Estado_Asesoria})
     estado:Estado_Asesoria;
 
-    @Column()
-    fecha_inicio:Date;
-
-    @Column()
-    fecha_fin:Date;
 
     @OneToMany(() => ProcesosAsesoria, procesosasesoria => procesosasesoria.asesoramiento)
     procesosasesoria: ProcesosAsesoria[];

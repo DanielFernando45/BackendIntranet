@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AsesorService } from './asesor.service';
 import { createAsesorDto } from './dto/crear-asesor.dto';
 import { UpdateAsesorDto } from './dto/update-asesor.dto';
@@ -27,7 +27,7 @@ export class AsesorController {
         }
 
         @Get('filter/:id_area')
-        async listAsesorPorArea(@Param('id_area',ParseIntPipe) id_area:number){
+        async listAsesorPorArea(@Param('id_area',ParseUUIDPipe) id_area: string){
             return this.asesorService.asesorPorArea(id_area)
         }
 

@@ -31,7 +31,7 @@ export class listarAsesorDto{
     readonly url_imagen:string;
 
     @IsNotEmpty()
-    readonly areaAsesor:object;
+    readonly area:object;
 
     @IsString()
     readonly especialidad:string;

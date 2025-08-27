@@ -1,4 +1,4 @@
-import { IsBoolean, IsString, MinLength } from "class-validator";
+import { IsBoolean, IsString, IsUUID, MinLength } from "class-validator";
 import { UserRole } from "../usuario.entity";
 
 export class CreateUserDto{
@@ -9,8 +9,9 @@ export class CreateUserDto{
     @IsString()
     @MinLength(4)
     password:string
-    
-    role: UserRole
+
+    // @IsUUID()
+    // role: string;
 
     @IsBoolean()
     estado:boolean
