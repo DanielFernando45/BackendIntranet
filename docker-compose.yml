@@ -48,7 +48,8 @@ services:
     command: >
       /bin/bash -c "/usr/local/bin/wait-for-it.sh mysql-db:3306 -- npm run start:dev"
     volumes:
-      - ./static:/myapp/static
+      - .:/myapp               
+      - /myapp/node_modules
     networks:
       - app-network
     

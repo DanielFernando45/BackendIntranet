@@ -148,8 +148,8 @@ export class ProcesosAsesoriaService {
       ])
       .where('as.id = :id', { id: id_asesor })
       .andWhere('pr.esDelegado = true')
-      .getRawOne();
-      if(!listadoInducciones )
+      .getRawMany();
+      if(!listadoInducciones || listadoInducciones.length === 0)
         throw new InternalServerErrorException('No hay inducciones asignadas');
       return listadoInducciones;
   }   
