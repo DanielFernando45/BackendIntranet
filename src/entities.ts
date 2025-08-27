@@ -7,6 +7,7 @@ import { AreaAsesor } from "./common/entidades/areaAsesor.entity";
 import { GradoAcademico } from "./common/entidades/gradoAcademico.entity";
 import { TipoContrato } from "./common/entidades/tipoContrato.entity";
 import { TipoTrabajo } from "./common/entidades/tipoTrabajo.entity";
+import { TipoPago } from "./common/entidades/tipoPago.entity";
 import { Documento } from "./documentos/entities/documento.entity";
 import { Inducciones } from "./inducciones/entity/inducciones";
 import { Informacion_Pagos } from "./pagos/entities/informacion_pagos.entity";
@@ -20,5 +21,11 @@ import { Tutorial } from "./recursos/entities/tutorial.entity";
 import { Reunion } from "./reuniones/entities/reunion.entity";
 import { Soporte } from "./soportes/entities/soporte.entity";
 import { Usuario } from "./usuario/usuario.entity";
+import { Categoria } from "./categoria/entities/categoria.entity";
+import { Contrato } from "./contrato/entities/contrato.entity";
+import { Area } from "./area/entities/area.entity";
+import { Supervisor } from "./supervisor/entities/supervisor.entity";
+import { Rol } from "./rol/entities/rol.entity";
 
-export const Entities = [Admin, Asesor, Cliente, Usuario, TipoContrato, TipoTrabajo, AreaAsesor, GradoAcademico, ProcesosAsesoria, Asesoramiento, Documento, Asunto, Reunion, Pago, Informacion_Pagos, Guia, Herramienta, Noticia, Tutorial, Soporte, Solucion, Inducciones]
+
+export const Entities = [Admin, Asesor, Cliente, Usuario, TipoContrato, TipoPago, TipoTrabajo, AreaAsesor, GradoAcademico, ProcesosAsesoria, Asesoramiento, Documento, Asunto, Reunion, Pago, Informacion_Pagos, Guia, Herramienta, Noticia, Tutorial, Soporte, Solucion, Inducciones, Categoria, Contrato, Area, Supervisor, Rol];

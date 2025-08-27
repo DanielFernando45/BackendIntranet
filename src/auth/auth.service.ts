@@ -31,10 +31,13 @@ export class AuthService {
     private clienteRepo: Repository<Cliente>,
 
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   async validateUser(username: string, password: string) {
-    const user = await this.usuarioRepo.findOneBy({ username });
+    const user = await this.usuarioRepo.findOne({
+      where: { username },
+      relations: ["rol"],
+    });
     const passwordValid = user
       ? await bcrypt.compare(password, user.password)
       : false;
@@ -45,35 +48,60 @@ export class AuthService {
   }
 
   async login(user: Usuario) {
-    let datos: { id: number; nombre: string } = { id: 0, nombre: '' };
-    const payload = { sub: user.id, username: user.username, role: user.role };
+    console.log(user)
+    let datos: { id: number; nombre: string, area?: number } = { id: 0, nombre: '', area: 0 };
+    const payload = { sub: user.id, username: user.username, role: user.rol.nombre };
 
-    if (user.role === 'admin') {
-      const getInfoAdmin = await this.adminRepo.findOne({
-        where: { usuario: { id: user.id } },
-        relations: ['usuario'],
-        select: ['id', 'nombre'],
-      });
+    if (user.rol.nombre === 'admin') {
+      const getInfoAdmin = await this.adminRepo.createQueryBuilder('admin')
+        .select(['admin.id as id', 'admin.nombre as nombre', 'area.id as id_area'])
+        .innerJoin('admin.usuario', 'usuario')
+        .innerJoin('admin.area', 'area')
+        .where('usuario.id = :id', { id: user.id })
+        .getRawOne();
+      // const getInfoAdmin = await this.adminRepo.findOne({
+      //   where: { usuario: { id: user.id } },
+      //   relations: ['usuario'],
+      //   select: ['id', 'nombre'],
+      // });
       if (getInfoAdmin === null) {
         throw new NotFoundException(
           'No se encontró un administrador con ese ID',
         );
       }
-      datos = getInfoAdmin;
+      if (!getInfoAdmin) {
+        throw new NotFoundException('No se encontró un administrador con ese ID');
+      }
+
+      datos = {
+        id: getInfoAdmin.id,
+        nombre: getInfoAdmin.nombre,
+        area: getInfoAdmin.id_area, // aquí ya puedes acceder al id del área
+      };
     }
 
-    if (user.role === 'asesor') {
-      const getInfoAsesor = await this.asesorRepo.findOne({
-        where: { usuario: { id: user.id } },
-        relations: ['usuario'],
-        select: ['id', 'nombre'],
-      });
+    if (user.rol.nombre === 'asesor') {
+      // const getInfoAsesor = await this.asesorRepo.findOne({
+      //   where: { usuario: { id: user.id } },
+      //   relations: ['usuario'],
+      //   select: ['id', 'nombre'],
+      // });
+      const getInfoAsesor = await this.asesorRepo.createQueryBuilder('asesor')
+        .select(['asesor.id as id', 'asesor.nombre as nombre', 'area.id as id_area'])
+        .innerJoin('asesor.usuario', 'usuario')
+        .innerJoin('asesor.areaAsesor', 'area')
+        .where('usuario.id = :id', { id: user.id })
+        .getRawOne();
       if (getInfoAsesor === null) {
         throw new NotFoundException('No se encontró un asesor con ese ID');
       }
-      datos = getInfoAsesor;
+      datos = {
+        id: getInfoAsesor.id,
+        nombre: getInfoAsesor.nombre,
+        area: getInfoAsesor.id_area, // aquí ya puedes acceder al id del área
+      };
     }
-    if (user.role === 'estudiante') {
+    if (user.rol.nombre === 'estudiante') {
       const getInfoCliente = await this.clienteRepo.findOne({
         where: { usuario: { id: user.id } },
         relations: ['usuario'],
@@ -83,6 +111,26 @@ export class AuthService {
         throw new NotFoundException('No se encontró un estudiante con ese ID');
       }
       datos = getInfoCliente;
+    }
+
+    if (datos.id === 0 && datos.nombre === '') {
+      // if (user.role != 'admin' && user.role != 'asesor' && user.role != 'estudiante') {
+      const getInfoAdmin = await this.adminRepo.createQueryBuilder('admin')
+        .select(['admin.id as id', 'admin.nombre as nombre', 'area.id as id_area'])
+        .innerJoin('admin.usuario', 'usuario')
+        .innerJoin('admin.area', 'area')
+        .where('usuario.id = :id', { id: user.id })
+        .getRawOne();
+      if (getInfoAdmin === null) {
+        throw new NotFoundException('No se encontró un usuario con ese ID');
+      }
+      console.log(getInfoAdmin);
+
+      datos = {
+        id: getInfoAdmin.id,
+        nombre: getInfoAdmin.nombre,
+        area: getInfoAdmin.id_area, // aquí ya puedes acceder al id del área
+      };
     }
 
     if (user.estado === false) {
@@ -97,7 +145,8 @@ export class AuthService {
       datos_usuario: {
         id: datos.id,
         nombre: datos.nombre,
-        role: user.role,
+        role: user.rol,
+        id_area: datos.area
       },
     };
   }

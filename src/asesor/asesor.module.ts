@@ -9,9 +9,10 @@ import { GradoAcademico } from 'src/common/entidades/gradoAcademico.entity';
 import { UsuarioModule } from 'src/usuario/usuario.module';
 import { AsesoramientoModule } from 'src/asesoramiento/asesoramiento.module';
 import { ProcesosAsesoriaModule } from 'src/procesos_asesoria/procesos_asesoria.module';
+import { Area } from 'src/area/entities/area.entity';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([Asesor,Usuario,AreaAsesor,GradoAcademico]),UsuarioModule,AsesoramientoModule,ProcesosAsesoriaModule],
+  imports:[TypeOrmModule.forFeature([Asesor,Usuario,AreaAsesor,GradoAcademico, Area]),UsuarioModule,AsesoramientoModule,ProcesosAsesoriaModule],
   providers: [AsesorService],
   controllers: [AsesorController],
   exports:[AsesorService]

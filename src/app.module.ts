@@ -23,6 +23,11 @@ import { SoportesModule } from './soportes/soportes.module';
 import { BackblazeModule } from './backblaze/backblaze.module';
 import { SeminariosModule } from './seminarios/seminarios.module';
 import { InduccionesModule } from './inducciones/inducciones.module';
+import { ContratoModule } from './contrato/contrato.module';
+import { CategoriaModule } from './categoria/categoria.module'
+import { SupervisorModule } from './supervisor/supervisor.module';
+import { AreaModule } from './area/area.module';
+import { RolModule } from './rol/rol.module';
 
 let puerto:number
 
@@ -56,7 +61,7 @@ if(process.env.DB_PORT){
     AdminModule,
     ClienteModule, 
     AsesorModule, MailModule, AsesoramientoModule, ProcesosAsesoriaModule
-    ,CommonModule, AsuntosModule, DocumentosModule, ReunionesModule, RecursosModule, PagosModule, SoportesModule, BackblazeModule, SeminariosModule, InduccionesModule],
+    ,CommonModule, AsuntosModule, DocumentosModule, ReunionesModule, RecursosModule, PagosModule, SoportesModule, BackblazeModule, SeminariosModule, InduccionesModule, CategoriaModule, ContratoModule, SupervisorModule, AreaModule, RolModule],
   controllers: [AppController],
   providers: [AppService],
 })

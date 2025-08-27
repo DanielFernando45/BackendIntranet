@@ -10,15 +10,15 @@ export class TipoContrato{
     @Column()
     nombre:string
 
-    @Column()
-    tipo_contrato:string
+    // @Column()
+    // tipo_contrato:string
 
-    @Column()
-    tipo_entrega:string
+    // @Column()
+    // tipo_entrega:string
 
-    @Column()
-    modalidad:string
+    // @Column()
+    // modalidad:string
 
-    @OneToMany(() => Asesoramiento, asesoramiento => asesoramiento.tipoContrato)
-    asesoramientos: Asesoramiento[];
+    // @OneToMany(() => Asesoramiento, asesoramiento => asesoramiento.tipoContrato)
+    // asesoramientos: Asesoramiento[];
 }

@@ -11,6 +11,6 @@ export class TipoTrabajo{
     @Column()
     nombre:string
 
-    @OneToMany(() => Asesoramiento, asesoramiento => asesoramiento.tipoTrabajo)
-    asesoramientos: Asesoramiento[];
+    // @OneToMany(() => Asesoramiento, asesoramiento => asesoramiento.tipoTrabajo)
+    // asesoramientos: Asesoramiento[];
 }

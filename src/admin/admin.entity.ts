@@ -1,5 +1,6 @@
-import {Entity,PrimaryGeneratedColumn,Column,OneToOne,JoinColumn} from 'typeorm'
+import {Entity,PrimaryGeneratedColumn,Column,OneToOne,JoinColumn, ManyToOne} from 'typeorm'
 import {Usuario} from '../usuario/usuario.entity'
+import { AreaAsesor } from 'src/common/entidades/areaAsesor.entity';
 
 @Entity()
 export class Admin{
@@ -18,4 +19,8 @@ export class Admin{
     @OneToOne(()=>Usuario,{cascade:true})
     @JoinColumn()
     usuario:Usuario;
+
+    @ManyToOne(() => AreaAsesor)
+    @JoinColumn({ name: 'id_area' }) 
+    area: AreaAsesor;
 }

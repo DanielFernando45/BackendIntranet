@@ -60,4 +60,9 @@ export class AdminController {
 
   }
 
+  @Get('area-asesor/:id')
+  async getAreaAsesorByIdArea(@Param('id',ParseIntPipe) id:number){
+    return this.adminService.getAreaAsesorByIdArea(id);
+  }
+
 }

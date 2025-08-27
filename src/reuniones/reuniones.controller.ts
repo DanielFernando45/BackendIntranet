@@ -17,13 +17,14 @@ import { CreateReunionDto } from './dto/create-reunion.dto';
 import { Response } from 'express';
 import { ZoomMeetingService } from './zoom.meeting.service';
 import { Estado_reunion } from './entities/reunion.entity';
+import { GetReunionFilterDto } from './dto/get-reunion-filter.dto';
 
 @Controller('reuniones')
 export class ReunionesController {
   constructor(
     private readonly reunionesService: ReunionesService,
     private readonly zoomService: ZoomMeetingService,
-  ) {}
+  ) { }
 
   @Post('crear-reunion')
   async crearReunion(@Body() body: CreateReunionDto) {
@@ -98,6 +99,11 @@ export class ReunionesController {
   allReunionesProximas(@Param('id', ParseIntPipe) id: number) {
     const estado = Estado_reunion.ESPERA;
     return this.reunionesService.listReunionesByAsesor(id, estado);
+  }
+
+  @Get('proximasReunionesPorFecha/:id')
+  allMeetingsFilterDate(@Param('id', ParseIntPipe) id: number, @Query() filter: GetReunionFilterDto) {
+    return this.reunionesService.proximasReunionesPorFecha(id, filter);
   }
 
   @Get('allReunionesAnteriores/:id')

@@ -18,6 +18,7 @@ import { ClienteService } from 'src/cliente/cliente.service';
 import { UserRole } from 'src/usuario/usuario.entity';
 import { ProcesosAsesoriaService } from 'src/procesos_asesoria/procesos_asesoria.service';
 import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
+import { GetReunionFilterDto } from './dto/get-reunion-filter.dto';
 
 @Injectable()
 export class ReunionesService {
@@ -32,7 +33,7 @@ export class ReunionesService {
 
     @InjectRepository(Reunion)
     private reunionRepo: Repository<Reunion>,
-  ) {}
+  ) { }
 
   async addReunion(createReunionDto: CreateReunionDto) {
     if (
@@ -314,7 +315,7 @@ export class ReunionesService {
 
     const credenciales =
       await this.asesorService.getCredentialsBySector(id_asesor[0].id_asesor);
-  
+
     if (!reunion) throw new NotFoundException('No se encontro la reunion');
     const token = await this.zoomAuthService.getAccessToken(
       credenciales.client_id,
@@ -337,15 +338,48 @@ export class ReunionesService {
     }
 
     const deleted = await this.reunionRepo.delete({ id: reunion?.id });
-        if (deleted.affected === 0)
+    if (deleted.affected === 0)
       throw new NotFoundException('No se elimino ningun registro');
 
     console.log(
       `🧹 Reunión ${reunion?.id} (Zoom ID: ${meetingId}) eliminada local y remotamente.`,
     );
-      return 'Se elimino correctamente';
+    return 'Se elimino correctamente';
 
   }
 
+  async proximasReunionesPorFecha(id: number, filter: GetReunionFilterDto) {
+    let queryBuilder = this.reunionRepo
+      .createQueryBuilder('re')
+      .innerJoin('re.asesoramiento', 'as')
+      .innerJoin('as.procesosasesoria', 'pr')
+      .innerJoin('pr.asesor', 'asesor')
+      .select([
+        'DISTINCT re.id AS id',
+        'as.id AS id_asesoramiento',
+        're.titulo AS titulo',
+        're.fecha_reunion AS fecha_reunion',
+        're.enlace_zoom AS enlace',
+        're.enlace_video AS enlace_video',
+        're.video_password AS video_password',
+        're.meetingId as meetingId',
+        'CONCAT(asesor.nombre, " ", asesor.apellido ) AS asesor'
+      ])
+      .where('asesor.id= :id', { id })
+      .andWhere('re.estado = :estado', { estado: 'espera' });
 
+      if (filter?.fecha_reunion != null) {
+        console.log('hay fecha');
+        queryBuilder = queryBuilder.andWhere('DATE(re.fecha_reunion) = :fecha', {
+          fecha: filter.fecha_reunion,
+        });
+      } else {
+      console.log('no hay fecha');
+      // Si no viene fecha, usar fecha actual
+      queryBuilder = queryBuilder.andWhere('DATE(re.fecha_reunion) = CURDATE()');
+    }
+
+    const result = await queryBuilder.getRawMany();
+    return result;
+  }
 }
