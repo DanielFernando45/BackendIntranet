@@ -48,8 +48,8 @@ export class AuthService {
   }
 
   async login(user: Usuario) {
-    console.log(user)
-    let datos: { id: number; nombre: string, area?: number } = { id: 0, nombre: '', area: 0 };
+    // console.log(user)
+    let datos: { id: number; nombre: string, area?: string } = { id: 0, nombre: '', area: '' };
     const payload = { sub: user.id, username: user.username, role: user.rol.nombre };
 
     if (user.rol.nombre === 'admin') {
@@ -86,19 +86,20 @@ export class AuthService {
       //   relations: ['usuario'],
       //   select: ['id', 'nombre'],
       // });
+      
       const getInfoAsesor = await this.asesorRepo.createQueryBuilder('asesor')
-        .select(['asesor.id as id', 'asesor.nombre as nombre', 'area.id as id_area'])
+        .select(['asesor.id as id', 'asesor.nombre as nombre','area.id as area_id'])
+        .leftJoin('asesor.area', 'area')
         .innerJoin('asesor.usuario', 'usuario')
-        .innerJoin('asesor.areaAsesor', 'area')
         .where('usuario.id = :id', { id: user.id })
         .getRawOne();
-      if (getInfoAsesor === null) {
+      if (getInfoAsesor === null || getInfoAsesor === undefined) {
         throw new NotFoundException('No se encontró un asesor con ese ID');
       }
       datos = {
         id: getInfoAsesor.id,
         nombre: getInfoAsesor.nombre,
-        area: getInfoAsesor.id_area, // aquí ya puedes acceder al id del área
+        area: getInfoAsesor.area_id ?? 'Area no asignada', 
       };
     }
     if (user.rol.nombre === 'estudiante') {
@@ -120,7 +121,7 @@ export class AuthService {
         .innerJoin('admin.usuario', 'usuario')
         .innerJoin('admin.area', 'area')
         .where('usuario.id = :id', { id: user.id })
-        .getRawOne();
+        .getOne();
       if (getInfoAdmin === null) {
         throw new NotFoundException('No se encontró un usuario con ese ID');
       }
@@ -129,7 +130,7 @@ export class AuthService {
       datos = {
         id: getInfoAdmin.id,
         nombre: getInfoAdmin.nombre,
-        area: getInfoAdmin.id_area, // aquí ya puedes acceder al id del área
+        area: getInfoAdmin.area.id, // aquí ya puedes acceder al id del área
       };
     }
 
