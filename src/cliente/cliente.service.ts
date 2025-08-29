@@ -44,38 +44,41 @@ export class ClienteService {
   ) {}
 
   async listClients(): Promise<ListarClientesDto[]> {
-    const listofCliente = await this.clienteRepo.find({
-      select: ['id', 'dni', 'nombre', 'apellido', 'fecha_creacion', 'carrera'],
-    });
+  const datosClientes = await this.clienteRepo
+    .createQueryBuilder('c')
+    .leftJoin(
+      qb =>
+        qb
+          .select('pr.id', 'id')
+          .addSelect('pr.id_cliente', 'id_cliente')
+          .addSelect('pr.id_asesoramiento', 'id_asesoramiento')
+          .from('procesos_asesoria', 'pr')
+          .where(
+            'pr.id IN (SELECT MIN(pr2.id) FROM procesos_asesoria pr2 GROUP BY pr2.id_cliente)',
+          ),
+      'pr',
+      'pr.id_cliente = c.id',
+    )
+    .leftJoin('contrato', 'co', 'pr.id_asesoramiento = co.id_asesoramiento')
+    .leftJoin('tipo_pago', 'tp', 'co.id_tipoPago = tp.id')
+    .select([
+      'c.id AS id',
+      "CONCAT(c.nombre, ' ', c.apellido) AS cliente",
+      'co.fecha_inicio AS fechaInicio',
+      'co.fecha_fin AS fechaFinal',
+      'c.carrera AS carrera',
+      'co.modalidad AS modalidad',
+      'tp.nombre AS tipopago',
+    ])
+    .getRawMany();
 
-    if (!listofCliente || listofCliente.length === 0)
-      throw new NotFoundException('No se encontro ningun cliente');
-
-    const mapedCliente = await Promise.all(
-      listofCliente.map(async (cliente) => {
-        const id_cliente = cliente.id;
-        console.log(id_cliente);
-        const datos_asesoramiento =
-          await this.asesoramientoService.findDatesByCliente(id_cliente);
-        return {
-          ...cliente,
-          datos_asesoramiento: datos_asesoramiento,
-        };
-      }),
-    );
-
-    const validatedClients = await Promise.all(
-      mapedCliente.map(async (client) => {
-        const errors = await validate(client);
-        if (errors.length > 0) {
-          throw new Error('El cliente no es válido');
-        }
-        return client;
-      }),
-    );
-
-    return validatedClients;
+  if (!datosClientes || datosClientes.length === 0) {
+    throw new NotFoundException('No se encontró ningún cliente');
   }
+
+  return datosClientes;
+}
+
 
   async listOneClient(id: number): Promise<ListarClienteDto> {
     const oneCliente = await this.clienteRepo.findOne({
