@@ -1,6 +1,7 @@
 import {Entity,PrimaryGeneratedColumn,Column,OneToOne,JoinColumn, ManyToOne} from 'typeorm'
 import {Usuario} from '../usuario/usuario.entity'
 import { AreaAsesor } from 'src/common/entidades/areaAsesor.entity';
+import { Area } from 'src/area/entities/area.entity';
 
 @Entity()
 export class Admin{
@@ -20,7 +21,7 @@ export class Admin{
     @JoinColumn()
     usuario:Usuario;
 
-    @ManyToOne(() => AreaAsesor)
+    @ManyToOne(() => Area)
     @JoinColumn({ name: 'id_area' }) 
-    area: AreaAsesor;
+    area: Area;
 }
