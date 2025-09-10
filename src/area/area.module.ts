@@ -7,4 +7,6 @@ import { AreaController } from './area.controller';
   providers: [AreaService],
   exports: [AreaService]
 })
-export class AreaModule {}
+export class AreaModule {
+  
+}

@@ -36,7 +36,7 @@ export class AsesoramientoService {
 
     @InjectDataSource()
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async create(
     createAsesoramientoDto: CreateAsesoramientoDto,
@@ -198,27 +198,30 @@ export class AsesoramientoService {
     }
   }
 
+
+
+
   async listar() {
-  const asesoramientos = await this.dataSource.getRepository(Contrato).createQueryBuilder('c')
-  .select([
-    'DISTINCT c.id AS id_contrato',
-    'c.servicio AS servicio',
-    'c.modalidad AS modalidad',
-    'c.fecha_inicio AS fecha_inicio',
-    'c.fecha_fin AS fecha_fin',
-    'a.id AS id_asesoramiento',
-    'a.profesion_asesoria AS profesion_asesoria',
-    'aa.nombre AS area',
-    "CONCAT(cli.nombre ,' ', cli.apellido) AS delegado",
-  ])
-  .innerJoin('c.asesoramiento','a')
-  .innerJoin('a.procesosasesoria', 'p')
-  .innerJoin('p.asesor', 'ase')
-  .innerJoin('ase.areaAsesor', 'aa')
-  .innerJoin('p.cliente', 'cli')
-  .where('p.esDelegado = 1')
-  .orderBy('id_asesoramiento', 'ASC')
-  .getRawMany();
+    const asesoramientos = await this.dataSource.getRepository(Contrato).createQueryBuilder('c')
+      .select([
+        'DISTINCT c.id AS id_contrato',
+        'c.servicio AS servicio',
+        'c.modalidad AS modalidad',
+        'c.fecha_inicio AS fecha_inicio',
+        'c.fecha_fin AS fecha_fin',
+        'a.id AS id_asesoramiento',
+        'a.profesion_asesoria AS profesion_asesoria',
+        'aa.nombre AS area',
+        "CONCAT(cli.nombre ,' ', cli.apellido) AS delegado",
+      ])
+      .innerJoin('c.asesoramiento', 'a')
+      .innerJoin('a.procesosasesoria', 'p')
+      .innerJoin('p.asesor', 'ase')
+      .innerJoin('ase.areaAsesor', 'aa')
+      .innerJoin('p.cliente', 'cli')
+      .where('p.esDelegado = 1')
+      .orderBy('id_asesoramiento', 'ASC')
+      .getRawMany();
     console.log(asesoramientos);
     //Obtenemos los estudiantes por el id asesoramiento
     // const asesoramientosWithEstudiantes = await Promise.all(
@@ -283,6 +286,73 @@ export class AsesoramientoService {
     );
     return asesoramientosWithEstudiantes;
   }
+
+    async getVerInduccionCliente(id_asesoria: number){
+       const datosclientes = await this.dataSource.query(`
+          SELECT 
+              a.id as id_asesoramiento,
+              a.profesion_asesoria as referencia,
+              concat(c.nombre,'',c.apellido) as delegado,
+              ar.nombre as area
+          FROM  asesoramiento  a
+              INNER JOIN procesos_asesoria pr ON a.id = pr.id_asesoramiento
+              INNER JOIN cliente c ON pr.id_cliente = c.id
+              INNER JOIN asesor ase ON pr.id_asesor = ase.id
+              INNER JOIN area ar ON ase.id_area = ar.id
+          WHERE pr.esDelegado = true and a.id = ${id_asesoria} ;
+        `);
+        //Estudiantes y asesores de asesoramiento
+        const induccion = await Promise.all(
+          datosclientes.map(async(asesoria) =>{
+            const estudiantes = 
+              (await this.clienteService.listAllByAsesoramiento(
+                asesoria.id_asesoramiento,
+              )) || [];
+              return {
+                ...asesoria,
+                estudiantes
+              };
+          }),
+        )
+  
+  
+      return induccion;
+    }
+
+    async listarAsignados() {
+      const listar = await this.dataSource.query(`
+        SELECT 
+          a.id as id_asesoramiento,
+          concat(c.nombre,'',c.apellido) as delegado,
+          con.fecha_inicio as fechaAsignacion,
+          t.nombre as tipotrabajo,
+          ar.nombre as area,
+          ase.nombre as asesor,
+          a.estado as estado
+        FROM  asesoramiento  a
+          INNER JOIN procesos_asesoria pr ON a.id = pr.id_asesoramiento
+          INNER JOIN cliente c ON pr.id_cliente = c.id
+          INNER JOIN asesor ase ON pr.id_asesor = ase.id
+          INNER JOIN area ar ON ase.id_area = ar.id
+          INNER JOIN contrato con ON a.id = con.id_asesoramiento
+          INNER JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
+        WHERE pr.esDelegado = true  ;
+        
+        `)
+        const listclientes = await Promise.all(
+          listar.map(async( asesoria)=>{
+            const cliente = await (this.clienteService.listAllByAsesoramiento(
+              asesoria.id_asesoramiento,
+            ))||([]);
+            return {
+              ...asesoria,
+              cliente
+            }
+          })
+        )
+      return listclientes;
+    }
+
 
   async listar_segun_fecha(fecha_limite: Date) {
     console.log(fecha_limite);
@@ -545,7 +615,7 @@ export class AsesoramientoService {
   }
 
   async getInfoAsesorbyAsesoramiento(id: number) {
-    try {      
+    try {
       const datosAsesor = await this.asesoramientoRepo
         .createQueryBuilder('a')
         .innerJoin('a.procesosasesoria', 'p')
@@ -576,7 +646,7 @@ export class AsesoramientoService {
   }
 
   async contratoDelAsesoramiento(id: number) {
-     const datosContrato = await this.asesoramientoRepo.findOne({
+    const datosContrato = await this.asesoramientoRepo.findOne({
       where: { id },
     });
     // const datosContrato = await this.asesoramientoRepo.findOne({

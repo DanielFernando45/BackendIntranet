@@ -29,6 +29,9 @@ export class ProcesosAsesoriaController {
     return this.procesosAsesoriaService.getListadoInducciones(id);
   }
 
+ 
+
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateProcesosAsesoriaDto: UpdateProcesosAsesoriaDto) {
     return this.procesosAsesoriaService.update(+id, updateProcesosAsesoriaDto);

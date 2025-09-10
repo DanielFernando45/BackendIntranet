@@ -1,4 +1,6 @@
 import {
+  Inject,
+  forwardRef,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -12,15 +14,17 @@ import { clientesExtraDTO } from './dto/clientes_extra.dto';
 import { Asesoramiento } from 'src/asesoramiento/entities/asesoramiento.entity';
 import { Cliente } from 'src/cliente/cliente.entity';
 
+
 @Injectable()
 export class ProcesosAsesoriaService {
   constructor(
     @InjectRepository(ProcesosAsesoria)
     private procesosAsesoriaRepo: Repository<ProcesosAsesoria>,
 
+
     @InjectDataSource()
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async addProceso_to_Asesoramiento(
     clientes: clientesExtraDTO,
@@ -135,24 +139,32 @@ export class ProcesosAsesoriaService {
 
 
   async getListadoInducciones(id_asesor: number) {
-   const listadoInducciones = await this.procesosAsesoriaRepo
+    const listadoInducciones = await this.procesosAsesoriaRepo
       .createQueryBuilder('pr')
       .innerJoin('pr.cliente', 'c')
-      .innerJoin('pr.asesor', 'as')
-      .innerJoin('pr.asesoramiento','a')
+      .innerJoin('pr.asesor', 'asr')
+      .innerJoin('pr.asesoramiento', 'a')
+      .innerJoin('contrato', 'co', 'a.id = co.id_asesoramiento')
       .select([
         'pr.id_asesoramiento AS asesoriaId',
-        "concat(c.nombre, ' ', c.apellido) AS cliente",
+        "concat(c.nombre, ' ', c.apellido) AS cliente", // usa || si es PostgreSQL
         'a.profesion_asesoria AS referenciaAsesoria',
-        'a.fecha_inicio AS fechaAsignacion',
+        'co.fecha_inicio AS fechaInicio',
       ])
-      .where('as.id = :id', { id: id_asesor })
+      .where('asr.id = :id', { id: id_asesor })
       .andWhere('pr.esDelegado = true')
       .getRawMany();
-      if(!listadoInducciones || listadoInducciones.length === 0)
-        throw new InternalServerErrorException('No hay inducciones asignadas');
-      return listadoInducciones;
-  }   
+
+    if (!listadoInducciones || listadoInducciones.length === 0) {
+      throw new NotFoundException('No hay inducciones asignadas');
+    }
+
+    return listadoInducciones;
+  }
+
+
+
+
 
   async getDelegadoAndIdAsesoramiento(
     id_asesor: number,

@@ -24,7 +24,7 @@ export class createAsesorDto{
     @IsString()
     readonly url_imagen:string;
 
-    @IsNumber()
+    @IsString()
     readonly area: string;
 
     @IsString()

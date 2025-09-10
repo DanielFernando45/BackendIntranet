@@ -26,9 +26,9 @@ export class UpdateAsesorDto{
     @IsOptional()
     readonly url_imagen:string;
 
-    @IsNumber()
+    @IsString()
     @IsOptional()
-    readonly areaAsesor:number;
+    readonly area:string;
 
     @IsString()
     @IsOptional()

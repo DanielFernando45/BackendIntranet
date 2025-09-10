@@ -118,15 +118,15 @@ export class AuthService {
       // if (user.role != 'admin' && user.role != 'asesor' && user.role != 'estudiante') {
       const getInfoAdmin = await this.adminRepo.createQueryBuilder('admin')
         .select(['admin.id as id', 'admin.nombre as nombre', 'area.id as id_area'])
-        .leftJoin('admin.usuario', 'usuario')
+        .innerJoin('admin.usuario', 'usuario')
         .leftJoin('admin.area', 'area')
         .where('usuario.id = :id', { id: user.id })
         .getRawOne();
         console.log(getInfoAdmin);
-
       if (getInfoAdmin === null) {
         throw new NotFoundException('No se encontró un usuario con ese ID');
       }
+
       datos = {
         id: getInfoAdmin.id,
         nombre: getInfoAdmin.nombre,

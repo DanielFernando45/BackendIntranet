@@ -47,6 +47,16 @@ export class AsesoramientoController {
     return this.asesoramientoService.listar_por_id(id);
   }
 
+  @Get('verInduccion/:id')
+  getVerInduccionCliente(@Param('id', ParseIntPipe) id:number){
+    return this.asesoramientoService.getVerInduccionCliente(id);
+  }  
+
+  @Get('/listarAsignados')
+  listarAsignados(){
+    return this.asesoramientoService.listarAsignados();
+  }
+
   @Post('asignacion')
   create(@Body() body: AsesoramientoWrpDTO) {
     return this.asesoramientoService.create(

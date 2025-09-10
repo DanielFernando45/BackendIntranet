@@ -39,7 +39,7 @@ export class AsesorService {
     ) { }
 
     async listAsesor(): Promise<listarAsesorDto[]> {
-        const listofAsesor = await this.asesorRepo.find({ relations: ["gradoAcademico", "areaAsesor"] })
+        const listofAsesor = await this.asesorRepo.find({ relations: ["gradoAcademico", "area"] })
         if (listofAsesor.length === 0) throw new NotFoundException("No se encontró ningún asesor");
 
 
@@ -52,7 +52,7 @@ export class AsesorService {
             telefono: asesor.telefono,
             url_imagen: asesor.url_imagen,
             area:{ id:asesor.area?.id,nombre:asesor.area?.nombre},
-            gradoAcademico: { id: asesor.gradoAcademico?.id, nombre: asesor.gradoAcademico?.nombre },
+            gradoAcademico: { id:asesor.gradoAcademico?.id, nombre: asesor.gradoAcademico?.nombre },
             especialidad: asesor.especialidad,
             universidad: asesor.universidad
         }))
@@ -65,7 +65,7 @@ export class AsesorService {
         const asesorDto: listarAsesorDto = {
             ...oneAsesor,
             area: { id: oneAsesor.area?.id, nombre: oneAsesor.area?.nombre },
-            gradoAcademico: { id: oneAsesor.area?.id, nombre: oneAsesor.gradoAcademico?.nombre },
+            gradoAcademico: { id: oneAsesor.gradoAcademico?.id, nombre: oneAsesor.gradoAcademico?.nombre },
 
         }
         return asesorDto
@@ -92,9 +92,7 @@ export class AsesorService {
             estado: true
         }
         savedUser = await this.usuarioService.createUserDefault(dataUser)
-
         try {
-
             const areaAsesorSearch = await this.areaRepo.findOneBy({ id: data.area });
             const gradoAcademicoSearch = await this.gradoAcademicoRepo.findOneBy({ id: data.gradoAcademico })
 
@@ -108,7 +106,7 @@ export class AsesorService {
             })
             return await this.asesorRepo.save(asesor)
         } catch (err) {
-            throw new BadRequestException()
+           throw new BadRequestException(err.message || "Error al crear el asesor");
         }
     }
 
@@ -118,8 +116,8 @@ export class AsesorService {
         }
         const partialEntity: any = { ...data };
         console.log(partialEntity)
-        if (data.areaAsesor) {
-            partialEntity.areaAsesor = { id: data.areaAsesor };
+        if (data.area) {
+            partialEntity.area = { id: data.area };
         }
         if (data.gradoAcademico) {
             partialEntity.gradoAcademico = { id: data.gradoAcademico };

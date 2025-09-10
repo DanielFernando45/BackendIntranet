@@ -12,12 +12,13 @@ export class Area {
     @Column()
     nombre: string;
 
-    @ManyToOne( () => Rol)
+    @ManyToOne(() => Rol)
     @JoinColumn({ name: 'id_rol' })
     rol: Rol;
 
-    @OneToMany(() => Supervisor, supervisor => supervisor.area)
-    supervisor: Supervisor[];
+    @ManyToOne(() => Supervisor, supervisor => supervisor.area)
+    @JoinColumn({ name: 'id_supervisor' })
+    supervisor: Supervisor;
 
     @OneToMany(() => Asesor, asesor => asesor.area)
     asesor: Asesor[];
