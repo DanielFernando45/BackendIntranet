@@ -666,9 +666,7 @@ export class AsesoramientoService {
     return datosContrato;
   }
 
-  async listAsesoriasSinpagos(
-    tipoContrato: string,
-  ): Promise<listAsesoramientoYDelegadoDto[]> {
+  async listAsesoriasSinpagos(tipoContrato: string,): Promise<listAsesoramientoYDelegadoDto[]> {
     const datosAsesoramiento = await this.asesoramientoRepo
       .createQueryBuilder('ase')
       .leftJoin('ase.informacion_pago', 'infoPago')
