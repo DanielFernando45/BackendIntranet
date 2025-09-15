@@ -3,7 +3,7 @@ import { Entities } from 'src/entities';
 import * as path from 'path';
 import { config } from 'dotenv';
 // config({ path: path.resolve(__dirname, '../../.env') }); // Ajusta la ruta si es necesario
-config()
+config();
 console.log('DB_USER:', process.env.DB_USER);
 console.log('DB_PASSWORD:', process.env.DB_PASSWORD);
 
@@ -16,6 +16,6 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   entities: Entities,
-  migrations: ['src/migrations/*.ts'],
+  migrations: [path.join(__dirname, 'src/migrations/*.ts')],
   synchronize: false, // muy importante en producción
 });
