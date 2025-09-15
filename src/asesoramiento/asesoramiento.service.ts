@@ -353,6 +353,30 @@ export class AsesoramientoService {
       return listclientes;
     }
 
+  async listarContratosSinAsignar() {
+    const listar = await this.dataSource.query(``)
+
+  }
+
+  async listarContratosAsignados() {
+    const listar = await this.dataSource.query(`
+      SELECT 
+        a.id as id_asesoramiento,
+        t.nombre as trabajo_investigacion,
+        concat(c.nombre ,'',c.apellido) as delegado,
+        con.fecha_inicio as fecha_registro,
+        con.modalidad as modalidad,
+        tp.nombre as tipo_pago
+      FROM asesoramiento a
+        INNER JOIN contrato con ON  a.id = con.id_asesoramiento
+        INNER JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
+        INNER JOIN procesos_asesoria p ON a.id = p.id_asesoramiento
+        INNER JOIN cliente c ON p.id_cliente = c.id 
+        INNER JOIN tipo_pago tp ON con.id_tipoPago = tp.id
+      WHERE p.esDelegado = true 
+      `)
+      return listar;
+  }
 
   async listar_segun_fecha(fecha_limite: Date) {
     console.log(fecha_limite);

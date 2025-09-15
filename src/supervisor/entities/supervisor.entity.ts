@@ -1,11 +1,11 @@
 import { Area } from "src/area/entities/area.entity";
 import { Asesor } from "src/asesor/asesor.entity";
 import { Usuario } from "src/usuario/usuario.entity";
-import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryColumn } from "typeorm";
+import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
 export class Supervisor {
-    @PrimaryColumn('uuid')
+    @PrimaryGeneratedColumn('uuid')
     id: string;
 
     @Column()
@@ -13,6 +13,9 @@ export class Supervisor {
 
     @Column()
     email: string;
+
+    @Column()
+    dni: string;
 
     @ManyToOne(() => Usuario)
     @JoinColumn({ name: 'usuarioId' })
