@@ -47,6 +47,7 @@ export class AsesoramientoController {
     return this.asesoramientoService.listar_por_id(id);
   }
 
+  
   @Get('verInduccion/:id')
   getVerInduccionCliente(@Param('id', ParseIntPipe) id:number){
     return this.asesoramientoService.getVerInduccionCliente(id);
@@ -57,6 +58,19 @@ export class AsesoramientoController {
     return this.asesoramientoService.listarAsignados();
   }
 
+  //falta terminar esta API , primero deberia crearse la asignacion supervisor , asesor-cliente
+  @Get('listarContratosSinAsignar')
+  listarContratosSinAsignar(){
+    return this.asesoramientoService.listarContratosSinAsignar();
+  }
+
+  @Get('ListarContratosAsignados')
+  listarContratosAsignados(){
+    return this.asesoramientoService.listarContratosAsignados();
+  }
+
+
+  
   @Post('asignacion')
   create(@Body() body: AsesoramientoWrpDTO) {
     return this.asesoramientoService.create(

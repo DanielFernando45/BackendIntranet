@@ -18,7 +18,7 @@ export class Area {
 
     @ManyToOne(() => Supervisor, supervisor => supervisor.area)
     @JoinColumn({ name: 'id_supervisor' })
-    supervisor: Supervisor;
+    supervisor: Supervisor | null;
 
     @OneToMany(() => Asesor, asesor => asesor.area)
     asesor: Asesor[];
