@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, Put, Get } from '@nestjs/common';
+import { Controller, Post, Body, Param, Put, Get, Delete } from '@nestjs/common';
 import { SupervisorService } from './supervisor.service';
 import { createSupervisorDto } from './dto/crear-supervisor.dto';
 
@@ -9,6 +9,19 @@ export class SupervisorController {
     @Post('add')
     async create(@Body() createSupervisorDto: createSupervisorDto) {
         return this.supervisorService.createSupervisor(createSupervisorDto);
+    }
+
+    @Put(':id')
+    async update(
+        @Param('id') id: string,
+        @Body() data: Partial<createSupervisorDto>
+    ) {
+        return this.supervisorService.updateSupervisor(id, data);
+    }
+
+    @Delete(':id')
+    async delete(@Param('id') id: string) {
+        return this.supervisorService.deleteSupervisor(id);
     }
 
     @Put(':id/asignar-areas')

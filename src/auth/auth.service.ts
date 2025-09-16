@@ -31,12 +31,12 @@ export class AuthService {
     private clienteRepo: Repository<Cliente>,
 
     private jwtService: JwtService,
-  ) { }
+  ) {}
 
   async validateUser(username: string, password: string) {
     const user = await this.usuarioRepo.findOne({
       where: { username },
-      relations: ["rol"],
+      relations: ['rol'],
     });
     const passwordValid = user
       ? await bcrypt.compare(password, user.password)
@@ -49,12 +49,25 @@ export class AuthService {
 
   async login(user: Usuario) {
     // console.log(user)
-    let datos: { id: number; nombre: string, area?: string } = { id: 0, nombre: '', area: '' };
-    const payload = { sub: user.id, username: user.username, role: user.rol.nombre };
+    let datos: { id: number; nombre: string; area?: string } = {
+      id: 0,
+      nombre: '',
+      area: '',
+    };
+    const payload = {
+      sub: user.id,
+      username: user.username,
+      role: user.rol.nombre,
+    };
 
     if (user.rol.nombre === 'admin') {
-      const getInfoAdmin = await this.adminRepo.createQueryBuilder('admin')
-        .select(['admin.id as id', 'admin.nombre as nombre', 'area.id as id_area'])
+      const getInfoAdmin = await this.adminRepo
+        .createQueryBuilder('admin')
+        .select([
+          'admin.id as id',
+          'admin.nombre as nombre',
+          'area.id as id_area',
+        ])
         .leftJoin('admin.usuario', 'usuario')
         .leftJoin('admin.area', 'area')
         .where('usuario.id = :id', { id: user.id })
@@ -70,7 +83,9 @@ export class AuthService {
         );
       }
       if (!getInfoAdmin) {
-        throw new NotFoundException('No se encontró un administrador con ese ID');
+        throw new NotFoundException(
+          'No se encontró un administrador con ese ID',
+        );
       }
 
       datos = {
@@ -86,9 +101,14 @@ export class AuthService {
       //   relations: ['usuario'],
       //   select: ['id', 'nombre'],
       // });
-      
-      const getInfoAsesor = await this.asesorRepo.createQueryBuilder('asesor')
-        .select(['asesor.id as id', 'asesor.nombre as nombre','area.id as area_id'])
+
+      const getInfoAsesor = await this.asesorRepo
+        .createQueryBuilder('asesor')
+        .select([
+          'asesor.id as id',
+          'asesor.nombre as nombre',
+          'area.id as area_id',
+        ])
         .leftJoin('asesor.area', 'area')
         .innerJoin('asesor.usuario', 'usuario')
         .where('usuario.id = :id', { id: user.id })
@@ -99,7 +119,7 @@ export class AuthService {
       datos = {
         id: getInfoAsesor.id,
         nombre: getInfoAsesor.nombre,
-        area: getInfoAsesor.area_id ?? 'Area no asignada', 
+        area: getInfoAsesor.area_id ?? 'Area no asignada',
       };
     }
     if (user.rol.nombre === 'estudiante') {
@@ -116,13 +136,18 @@ export class AuthService {
 
     if (datos.id === 0 && datos.nombre === '') {
       // if (user.role != 'admin' && user.role != 'asesor' && user.role != 'estudiante') {
-      const getInfoAdmin = await this.adminRepo.createQueryBuilder('admin')
-        .select(['admin.id as id', 'admin.nombre as nombre', 'area.id as id_area'])
+      const getInfoAdmin = await this.adminRepo
+        .createQueryBuilder('admin')
+        .select([
+          'admin.id as id',
+          'admin.nombre as nombre',
+          'area.id as id_area',
+        ])
         .innerJoin('admin.usuario', 'usuario')
         .leftJoin('admin.area', 'area')
         .where('usuario.id = :id', { id: user.id })
         .getRawOne();
-        console.log(getInfoAdmin);
+      console.log(getInfoAdmin);
       if (getInfoAdmin === null) {
         throw new NotFoundException('No se encontró un usuario con ese ID');
       }
@@ -147,7 +172,7 @@ export class AuthService {
         id: datos.id,
         nombre: datos.nombre,
         role: user.rol,
-        id_area: datos.area
+        id_area: datos.area,
       },
     };
   }
@@ -182,19 +207,41 @@ export class AuthService {
 
     return { message: 'Contraseña cambiada correctamente' };
   }
-  async changePassword(id: number, oldPassword: string, newPassword: string) {
-    const searchedUser = await this.usuarioRepo.findOneBy({ id });
-    if (!searchedUser) throw new NotFoundException('No se encuentra ese user');
-    const comparationPassword = searchedUser
-      ? await bcrypt.compare(oldPassword, searchedUser.password)
-      : false;
-    if (!comparationPassword) {
-      throw new BadRequestException('No es correcta la contraseña ingresada');
+  
+  async changePassword(
+    id: number,
+    oldPassword: string,
+    newPassword: string,
+    repeatPassword: string,
+  ) {
+    // Buscar usuario
+    const user = await this.usuarioRepo.findOneBy({ id });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
     }
-    const newHashed = await bcrypt.hash(newPassword, 10);
-    searchedUser.password = newHashed;
 
-    const updated = await this.usuarioRepo.save(searchedUser);
+    // Comparar contraseña actual
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      throw new BadRequestException('La contraseña actual no es correcta');
+    }
+
+    // Validar coincidencia de nuevas contraseñas
+    if (newPassword !== repeatPassword) {
+      throw new BadRequestException('Las nuevas contraseñas no coinciden');
+    }
+
+    // Validar que no sea la misma contraseña
+    const isSameAsOld = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsOld) {
+      throw new BadRequestException(
+        'La nueva contraseña no puede ser igual a la anterior',
+      );
+    }
+
+    // Hashear y guardar
+    user.password = await bcrypt.hash(newPassword, 10);
+    await this.usuarioRepo.save(user);
 
     return { message: 'Contraseña cambiada correctamente' };
   }
