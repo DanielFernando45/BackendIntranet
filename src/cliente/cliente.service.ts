@@ -19,11 +19,12 @@ import { UsuarioService } from 'src/usuario/usuario.service';
 import { ListarClientesDto } from './dto/listar-clientes.dto';
 import { AsesoramientoService } from 'src/asesoramiento/asesoramiento.service';
 import { validate } from 'class-validator';
-import { CreateUserDto } from 'src/usuario/dto/create-user.dto';
+import { UpdateClienteDto } from 'src/admin/dto/update-admin.dto';
 import { ClientesSinAsignar } from './dto/clientes-sin-asignar.dto';
 import { updatedByClient } from './dto/updated-by-client.dto';
 import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
 import { ProcesosAsesoriaService } from 'src/procesos_asesoria/procesos_asesoria.service';
+import { Rol } from '../rol/entities/rol.entity'; // Importa la entidad Rol
 
 @Injectable()
 export class ClienteService {
@@ -36,6 +37,9 @@ export class ClienteService {
     @InjectRepository(Cliente)
     private clienteRepo: Repository<Cliente>,
 
+    @InjectRepository(Rol)
+    private rolRepo: Repository<Rol>,
+
     @InjectRepository(GradoAcademico)
     private gradoAcademicoRepo: Repository<GradoAcademico>,
 
@@ -44,41 +48,40 @@ export class ClienteService {
   ) {}
 
   async listClients(): Promise<ListarClientesDto[]> {
-  const datosClientes = await this.clienteRepo
-    .createQueryBuilder('c')
-    .leftJoin(
-      qb =>
-        qb
-          .select('pr.id', 'id')
-          .addSelect('pr.id_cliente', 'id_cliente')
-          .addSelect('pr.id_asesoramiento', 'id_asesoramiento')
-          .from('procesos_asesoria', 'pr')
-          .where(
-            'pr.id IN (SELECT MIN(pr2.id) FROM procesos_asesoria pr2 GROUP BY pr2.id_cliente)',
-          ),
-      'pr',
-      'pr.id_cliente = c.id',
-    )
-    .leftJoin('contrato', 'co', 'pr.id_asesoramiento = co.id_asesoramiento')
-    .leftJoin('tipo_pago', 'tp', 'co.id_tipoPago = tp.id')
-    .select([
-      'c.id AS id',
-      "CONCAT(c.nombre, ' ', c.apellido) AS cliente",
-      'co.fecha_inicio AS fechaInicio',
-      'co.fecha_fin AS fechaFinal',
-      'c.carrera AS carrera',
-      'co.modalidad AS modalidad',
-      'tp.nombre AS tipopago',
-    ])
-    .getRawMany();
+    const datosClientes = await this.clienteRepo
+      .createQueryBuilder('c')
+      .leftJoin(
+        (qb) =>
+          qb
+            .select('pr.id', 'id')
+            .addSelect('pr.id_cliente', 'id_cliente')
+            .addSelect('pr.id_asesoramiento', 'id_asesoramiento')
+            .from('procesos_asesoria', 'pr')
+            .where(
+              'pr.id IN (SELECT MIN(pr2.id) FROM procesos_asesoria pr2 GROUP BY pr2.id_cliente)',
+            ),
+        'pr',
+        'pr.id_cliente = c.id',
+      )
+      .leftJoin('contrato', 'co', 'pr.id_asesoramiento = co.id_asesoramiento')
+      .leftJoin('tipo_pago', 'tp', 'co.id_tipoPago = tp.id')
+      .select([
+        'c.id AS id',
+        "CONCAT(c.nombre, ' ', c.apellido) AS cliente",
+        'co.fecha_inicio AS fechaInicio',
+        'co.fecha_fin AS fechaFinal',
+        'c.carrera AS carrera',
+        'co.modalidad AS modalidad',
+        'tp.nombre AS tipopago',
+      ])
+      .getRawMany();
 
-  if (!datosClientes || datosClientes.length === 0) {
-    throw new NotFoundException('No se encontró ningún cliente');
+    if (!datosClientes || datosClientes.length === 0) {
+      throw new NotFoundException('No se encontró ningún cliente');
+    }
+
+    return datosClientes;
   }
-
-  return datosClientes;
-}
-
 
   async listOneClient(id: number): Promise<ListarClienteDto> {
     const oneCliente = await this.clienteRepo.findOne({
@@ -111,31 +114,45 @@ export class ClienteService {
   }
 
   async crearCliente(data: CreateClienteDto) {
-    let savedUser: CreateUserDto;
-    try {
-      const exist = await this.clienteRepo.findOneBy({ email: data.email });
-      if (exist) throw new ConflictException('Ya existe ese cliente');
+    let savedUser;
 
+    // 1️⃣ Buscar el rol "ESTUDIANTE" en la tabla Rol
+    const rolEstudiante = await this.rolRepo.findOneBy({
+      nombre: UserRole.ESTUDIANTE,
+    });
+    if (!rolEstudiante)
+      throw new NotFoundException('No se encontró el rol ESTUDIANTE');
+
+    // 2️⃣ Verificar si ya existe un cliente con ese email
+    const exist = await this.clienteRepo.findOneBy({ email: data.email });
+    if (exist) throw new ConflictException('Ya existe ese cliente');
+
+    // 3️⃣ Crear usuario con relación al rol
+    try {
       const dataUser = {
         username: data.email,
         password: data.dni,
-        role: UserRole.ESTUDIANTE,
         estado: true,
+        rol: rolEstudiante, // <-- asignamos el objeto Rol directamente
       };
+
       savedUser = await this.usuarioService.createUserDefault(dataUser);
     } catch (err) {
-      throw new Error(err.message);
+      throw new InternalServerErrorException(
+        `Error al crear el usuario: ${err.message}`,
+      );
     }
+
+    // 4️⃣ Buscar grado académico
+    const gradoAcademicoSearch = await this.gradoAcademicoRepo.findOneBy({
+      id: data.gradoAcademico,
+    });
+    if (!gradoAcademicoSearch) {
+      throw new NotFoundException('El grado académico especificado no existe');
+    }
+
+    // 5️⃣ Crear cliente asociado al usuario
     try {
-      const gradoAcademicoSearch = await this.gradoAcademicoRepo.findOneBy({
-        id: data.gradoAcademico,
-      });
-
-      if (!gradoAcademicoSearch)
-        throw new NotFoundException(
-          'Algunas entidades relacionadas no existen',
-        );
-
       const cliente = this.clienteRepo.create({
         dni: data.dni,
         nombre: data.nombre,
@@ -147,12 +164,14 @@ export class ClienteService {
         gradoAcademico: gradoAcademicoSearch,
         universidad: data.universidad,
         carrera: data.carrera,
-        usuario: savedUser,
+        usuario: savedUser, // usuario con rol ESTUDIANTE asignado correctamente
       });
 
       return await this.clienteRepo.save(cliente);
     } catch (err) {
-      throw new InternalServerErrorException(err.message);
+      throw new InternalServerErrorException(
+        `Error al crear el cliente: ${err.message}`,
+      );
     }
   }
 
@@ -214,23 +233,59 @@ export class ClienteService {
     return updated;
   }
 
-  async patchCliente(id: number, data: updateClienteDto) {
-    if (!Object.keys(data).length)
-      throw new BadRequestException('No se envio un body para actualizar');
+  async actualizarCliente(id: number, data: CreateClienteDto) {
+    // 1️⃣ Buscar el cliente existente
+    const clienteExist = await this.clienteRepo.findOne({
+      where: { id },
+      relations: ['usuario', 'gradoAcademico'],
+    });
 
-    const partialEntity: any = { ...data };
+    if (!clienteExist) throw new NotFoundException('Cliente no encontrado');
 
-    if (data.gradoAcademico) {
-      partialEntity.gradoAcademico = { id: data.gradoAcademico };
+    // 2️⃣ Si se actualiza el email, verificar que no exista otro cliente con ese email
+    if (data.email && data.email !== clienteExist.email) {
+      const emailExist = await this.clienteRepo.findOneBy({
+        email: data.email,
+      });
+      if (emailExist)
+        throw new ConflictException('El email ya está en uso por otro cliente');
     }
 
-    const updated = await this.clienteRepo.update(id, partialEntity);
-    if (updated.affected === 0)
-      throw new NotFoundException('No hay registro a afectar');
+    // 3️⃣ Actualizar grado académico si se proporciona
+    let gradoAcademicoActualizado = clienteExist.gradoAcademico;
+    if (data.gradoAcademico) {
+      const grado = await this.gradoAcademicoRepo.findOneBy({
+        id: data.gradoAcademico,
+      });
+      if (!grado)
+        throw new NotFoundException(
+          'El grado académico especificado no existe',
+        );
+      gradoAcademicoActualizado = grado;
+    }
 
-    return updated;
+    // 4️⃣ Actualizar los datos del cliente
+    clienteExist.dni = data.dni ?? clienteExist.dni;
+    clienteExist.nombre = data.nombre ?? clienteExist.nombre;
+    clienteExist.apellido = data.apellido ?? clienteExist.apellido;
+    clienteExist.telefono = data.telefono ?? clienteExist.telefono;
+    clienteExist.email = data.email ?? clienteExist.email;
+    clienteExist.url_imagen = data.url_imagen ?? clienteExist.url_imagen;
+    clienteExist.pais = data.pais ?? clienteExist.pais;
+    clienteExist.universidad = data.universidad ?? clienteExist.universidad;
+    clienteExist.carrera = data.carrera ?? clienteExist.carrera;
+    clienteExist.gradoAcademico = gradoAcademicoActualizado;
+
+    // 5️⃣ Guardar los cambios
+    try {
+      return await this.clienteRepo.save(clienteExist);
+    } catch (err) {
+      throw new InternalServerErrorException(
+        `Error al actualizar el cliente: ${err.message}`,
+      );
+    }
   }
-
+  
   async deletedCliente(id: number) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -342,14 +397,14 @@ export class ClienteService {
   }
 
   async listAllByAsesoramiento(id: number) {
-//     const asesoramientos = await this.dataSource.query(`
-//       SELECT 
-//   c.id AS id_estudiante, 
-//   CONCAT(c.nombre, ' ', c.apellido) AS estudiante 
-// FROM procesos_asesoria AS pa  
-// INNER JOIN cliente AS c ON c.id = pa.id_cliente  
-// WHERE pa.id_asesoramiento = ${id};
-//   `);
+    //     const asesoramientos = await this.dataSource.query(`
+    //       SELECT
+    //   c.id AS id_estudiante,
+    //   CONCAT(c.nombre, ' ', c.apellido) AS estudiante
+    // FROM procesos_asesoria AS pa
+    // INNER JOIN cliente AS c ON c.id = pa.id_cliente
+    // WHERE pa.id_asesoramiento = ${id};
+    //   `);
 
     // console.log(asesoramientos);
     const queryRunner = this.dataSource.createQueryRunner();

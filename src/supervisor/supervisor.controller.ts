@@ -24,7 +24,7 @@ export class SupervisorController {
         return this.supervisorService.deleteSupervisor(id);
     }
 
-    @Put(':id/asignar-areas')
+    @Put('asignar-areas/:id')
     async assignAreas(
         @Param('id') id: string,
         @Body('areasIds') areasIds: string[]
@@ -32,7 +32,7 @@ export class SupervisorController {
         return this.supervisorService.assignAreasToSupervisor(id, areasIds);
     }
 
-    @Put(':id/quitar-areasAsesor')
+    @Put('quitar-areasAsesor/:id')
     async unassignAreas(
         @Param('id') id: string,
         @Body('areasIds') areasIds: string[]

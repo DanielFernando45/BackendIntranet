@@ -23,9 +23,6 @@ export class Rol {
     @Column({ type: 'enum', enum: UserRole })
     nombre: string;
 
-    @OneToMany(() => Area, area => area.rol)
-    area: Area[];
-
     @OneToMany(() => Usuario, usuario => usuario.rol)
     usuario: Usuario[];
     

@@ -5,11 +5,11 @@ import { Admin } from './admin.entity';
 import { Usuario } from '../usuario/usuario.entity';
 import { AdminController } from './admin.controller';
 import { UsuarioModule } from 'src/usuario/usuario.module';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
+import { Rol } from 'src/rol/entities/rol.entity';
+
 
 @Module({
-  imports:[TypeOrmModule.forFeature([Admin,Usuario]),UsuarioModule],
+  imports:[TypeOrmModule.forFeature([Admin,Usuario, Rol]),UsuarioModule],
   providers: [AdminService],
   controllers:[AdminController]
 })

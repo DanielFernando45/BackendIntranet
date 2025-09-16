@@ -1,27 +1,23 @@
-import {Entity,PrimaryGeneratedColumn,Column,OneToOne,JoinColumn, ManyToOne} from 'typeorm'
-import {Usuario} from '../usuario/usuario.entity'
-import { AreaAsesor } from 'src/common/entidades/areaAsesor.entity';
-import { Area } from 'src/area/entities/area.entity';
-
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn } from 'typeorm';
+import { Usuario } from '../usuario/usuario.entity';
 @Entity()
-export class Admin{
-    @PrimaryGeneratedColumn()
-    id:number;
+export class Admin {
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column()
-    nombre:string;
+  @Column()
+  nombre: string;
 
-    @Column()
-    email:string;
+  @Column()
+  email: string;
 
-    @Column()
-    dni:string;
+  @Column()
+  dni: string;
 
-    @OneToOne(()=>Usuario,{cascade:true})
-    @JoinColumn()
-    usuario:Usuario;
+  @Column()
+  id_rol: String;
 
-    @ManyToOne(() => Area)
-    @JoinColumn({ name: 'id_area' }) 
-    area: Area;
+  @OneToOne(() => Usuario, { eager: true })
+  @JoinColumn({ name: 'usuarioId' })
+  usuario: Usuario;
 }

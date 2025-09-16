@@ -1,21 +1,31 @@
-import { IsArray, IsEmail, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import {
+  IsArray,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsString,
+} from 'class-validator';
+import { UserRole } from 'src/usuario/usuario.entity';
 
+export class createSupervisorDto {
+  @IsString()
+  @IsNotEmpty()
+  readonly nombre: string;
 
-export class createSupervisorDto{
+  @IsEmail()
+  @IsNotEmpty()
+  readonly email: string;
 
-    @IsString()
-    @IsNotEmpty()
-    readonly nombre: string;
+  @IsString()
+  @IsNotEmpty()
+  readonly dni: string;
 
-    @IsEmail()
-    @IsNotEmpty()
-    readonly email: string;
+  @IsArray()
+  @IsOptional()
+  readonly areasIds?: string[];
 
-    @IsString()
-    @IsNotEmpty()
-    readonly dni: string;
-
-    @IsArray()
-    @IsOptional()
-    readonly areasIds?: string[];
+  @IsEnum(UserRole)
+  @IsOptional()
+  readonly role?: UserRole; // <- ahora se puede pasar
 }

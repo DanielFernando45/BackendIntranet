@@ -7,10 +7,11 @@ import { Usuario } from '../usuario/usuario.entity';
 import { GradoAcademico } from 'src/common/entidades/gradoAcademico.entity';
 import { UsuarioModule } from 'src/usuario/usuario.module';
 import { AsesoramientoModule } from 'src/asesoramiento/asesoramiento.module';
+import { Rol } from 'src/rol/entities/rol.entity';
 
 @Module({
   exports:[ClienteService,TypeOrmModule],
-  imports:[TypeOrmModule.forFeature([Cliente,Usuario,GradoAcademico]),UsuarioModule,forwardRef(()=>AsesoramientoModule)],
+  imports:[TypeOrmModule.forFeature([Cliente,Usuario,GradoAcademico, Rol]),UsuarioModule,forwardRef(()=>AsesoramientoModule)],
   controllers: [ClienteController],
   providers: [ClienteService]
 })

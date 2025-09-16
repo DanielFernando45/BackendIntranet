@@ -31,14 +31,13 @@ export class ClienteController {
     }
 
     @Post("/add")
-    @UsePipes(new ValidationPipe({transform:true}))
     async crearCliente(@Body() createClienteDto:CreateClienteDto){
         return this.clienteService.crearCliente(createClienteDto)
     }
 
     @Patch('/update/:id')
     async update(@Param('id',ParseIntPipe) id:number,@Body() body:updateClienteDto){
-        return this.clienteService.patchCliente(id,body)
+        return this.clienteService.patchByClient(id,body)
     }
 
     @Patch('updated_cliente/:id')

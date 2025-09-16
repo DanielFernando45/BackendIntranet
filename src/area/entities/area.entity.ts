@@ -1,5 +1,4 @@
 import { Asesor } from "src/asesor/asesor.entity";
-import { Rol } from "src/rol/entities/rol.entity";
 import { Supervisor } from "src/supervisor/entities/supervisor.entity";
 import { Column, Entity, JoinColumn, ManyToMany, ManyToOne, OneToMany, PrimaryColumn } from "typeorm";
 
@@ -11,10 +10,6 @@ export class Area {
 
     @Column()
     nombre: string;
-
-    @ManyToOne(() => Rol)
-    @JoinColumn({ name: 'id_rol' })
-    rol: Rol;
 
     @ManyToOne(() => Supervisor, supervisor => supervisor.area)
     @JoinColumn({ name: 'id_supervisor' })

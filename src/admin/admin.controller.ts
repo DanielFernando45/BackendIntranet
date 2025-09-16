@@ -1,6 +1,6 @@
 import { Controller ,Post,Body,Get, Param, Patch, ParseIntPipe, Delete, UseGuards, BadRequestException, Req} from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { CrearlienteDto } from './dto/crear-admin.dto';
+import { CrearAdminDto} from './dto/crear-admin.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
@@ -23,12 +23,12 @@ export class AdminController {
     }
 
     @Post('/add')
-    async create(@Body() body:CrearlienteDto){
-        return this.adminService.create(body)
+    async create(@Body() body:CrearAdminDto){
+        return this.adminService.createAdmin(body)
     }
 
     @Patch('/update/:id')
-    async patchAdmin(@Body() body:CrearlienteDto,@Param('id',ParseIntPipe) id:number){
+    async patchAdmin(@Body() body:CrearAdminDto,@Param('id',ParseIntPipe) id:number){
         return this.adminService.patchAdmin(body,id)
     }
 

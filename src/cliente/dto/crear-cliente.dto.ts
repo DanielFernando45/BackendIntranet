@@ -1,54 +1,56 @@
-import { IsString, IsEmail, IsNotEmpty, IsNumber, IsUrl, IsInt, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsInt,
+  IsEnum,
+} from 'class-validator';
+import { UserRole } from 'src/usuario/usuario.entity';
 
 export class CreateClienteDto {
-    @IsString()
-    @IsNotEmpty()
-    readonly dni: string;
+  @IsString()
+  @IsNotEmpty()
+  readonly dni: string;
 
-    @IsString()
-    @IsNotEmpty()
-    readonly nombre: string;
+  @IsString()
+  @IsNotEmpty()
+  readonly nombre: string;
 
-    @IsString()
-    @IsNotEmpty()
-    readonly apellido: string;
+  @IsString()
+  @IsNotEmpty()
+  readonly apellido: string;
 
-    @IsNumber()
-    @IsNotEmpty()
-    readonly telefono: number;
+  @IsNumber()
+  @IsNotEmpty()
+  readonly telefono: number;
 
-    @IsEmail()
-    @IsNotEmpty()
-    readonly email: string;
+  @IsEmail()
+  @IsNotEmpty()
+  readonly email: string;
 
-    @IsString()
-    @IsOptional()
-    readonly url_imagen: string;
+  @IsString()
+  @IsOptional()
+  readonly url_imagen?: string;
 
-    // @IsInt()
-    // @IsNotEmpty()
-    // readonly tipoTrabajo: number;
+  @IsString()
+  @IsNotEmpty()
+  readonly pais: string;
 
-    @IsString()
-    @IsNotEmpty()
-    readonly pais: string;
+  @IsInt()
+  @IsNotEmpty()
+  readonly gradoAcademico: number; // número entero para el id del grado académico
 
-    @IsInt()
-    @IsNotEmpty()
-    readonly gradoAcademico: number;
+  @IsString()
+  @IsNotEmpty()
+  readonly universidad: string;
 
-    @IsString()
-    @IsNotEmpty()
-    readonly universidad: string;
+  @IsString()
+  @IsNotEmpty()
+  readonly carrera: string;
 
-    @IsString()
-    @IsNotEmpty()
-    readonly carrera:string;
-
-    // @IsInt()
-    // @IsNotEmpty()
-    // readonly tipoContrato: number;
-
-  // Puedes agregar también un usuario anidado si lo estás creando al mismo tiempo
-  // readonly usuario: CreateUsuarioDto;
+  @IsEnum(UserRole)
+  @IsOptional()
+  readonly role?: UserRole; // opcional
 }

@@ -1,10 +1,16 @@
-import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Asesor } from './asesor.entity';
 import { DataSource, Repository } from 'typeorm';
 import { Usuario, UserRole } from '../usuario/usuario.entity';
 import { createAsesorDto } from './dto/crear-asesor.dto';
-import * as bcrypt from "bcrypt"
+import * as bcrypt from 'bcrypt';
 import { listarAsesorDto } from './dto/listar-asesor.dto';
 import { UpdateAsesorDto } from './dto/update-asesor.dto';
 import { AreaAsesor } from 'src/common/entidades/areaAsesor.entity';
@@ -15,187 +21,222 @@ import { UsuarioService } from 'src/usuario/usuario.service';
 import { AsesoramientoService } from 'src/asesoramiento/asesoramiento.service';
 import { ProcesosAsesoriaService } from 'src/procesos_asesoria/procesos_asesoria.service';
 import { Asesoramiento } from 'src/asesoramiento/entities/asesoramiento.entity';
+import { Rol } from 'src/rol/entities/rol.entity';
 import { Area } from 'src/area/entities/area.entity';
 
 @Injectable()
 export class AsesorService {
-    constructor(
-        private readonly usuarioService: UsuarioService,
-        private readonly asesoramientoService: AsesoramientoService,
-        private readonly procesosAsesoriaService: ProcesosAsesoriaService,
+  constructor(
+    private readonly usuarioService: UsuarioService,
+    private readonly asesoramientoService: AsesoramientoService,
+    private readonly procesosAsesoriaService: ProcesosAsesoriaService,
 
-        @InjectDataSource()
-        private readonly dataSource: DataSource,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
 
-        @InjectRepository(Asesor)
-        private asesorRepo: Repository<Asesor>,
+    @InjectRepository(Asesor)
+    private asesorRepo: Repository<Asesor>,
 
-        @InjectRepository(Area)
-        private areaRepo: Repository<Area>,
+    @InjectRepository(Area)
+    private areaRepo: Repository<Area>,
 
-        @InjectRepository(GradoAcademico)
-        private gradoAcademicoRepo: Repository<GradoAcademico>,
+    @InjectRepository(Rol)
+    private rolRepo: Repository<Rol>,
 
-    ) { }
+    @InjectRepository(GradoAcademico)
+    private gradoAcademicoRepo: Repository<GradoAcademico>,
+  ) {}
 
-    async listAsesor(): Promise<listarAsesorDto[]> {
-        const listofAsesor = await this.asesorRepo.find({ relations: ["gradoAcademico", "area"] })
-        if (listofAsesor.length === 0) throw new NotFoundException("No se encontró ningún asesor");
+  async listAsesor(): Promise<listarAsesorDto[]> {
+    const listofAsesor = await this.asesorRepo.find({
+      relations: ['gradoAcademico', 'area'],
+    });
+    if (listofAsesor.length === 0)
+      throw new NotFoundException('No se encontró ningún asesor');
 
+    const mapedAsesor: listarAsesorDto[] = listofAsesor.map((asesor) => ({
+      id: asesor.id,
+      dni: asesor.dni,
+      nombre: asesor.nombre,
+      apellido: asesor.apellido,
+      email: asesor.email,
+      telefono: asesor.telefono,
+      url_imagen: asesor.url_imagen,
+      area: { id: asesor.area?.id, nombre: asesor.area?.nombre },
+      gradoAcademico: {
+        id: asesor.gradoAcademico?.id,
+        nombre: asesor.gradoAcademico?.nombre,
+      },
+      especialidad: asesor.especialidad,
+      universidad: asesor.universidad,
+    }));
+    return mapedAsesor;
+  }
 
-        const mapedAsesor: listarAsesorDto[] = listofAsesor.map(asesor => ({
-            id: asesor.id,
-            dni: asesor.dni,
-            nombre: asesor.nombre,
-            apellido: asesor.apellido,
-            email: asesor.email,
-            telefono: asesor.telefono,
-            url_imagen: asesor.url_imagen,
-            area:{ id:asesor.area?.id,nombre:asesor.area?.nombre},
-            gradoAcademico: { id:asesor.gradoAcademico?.id, nombre: asesor.gradoAcademico?.nombre },
-            especialidad: asesor.especialidad,
-            universidad: asesor.universidad
-        }))
-        return mapedAsesor
+  async listOneAsesor(id: number): Promise<listarAsesorDto> {
+    const oneAsesor = await this.asesorRepo.findOne({
+      where: { id },
+      relations: ['area', 'gradoAcademico'],
+    });
+    if (oneAsesor === null) throw new Error('No hay un asesor con ese ID');
+    const asesorDto: listarAsesorDto = {
+      ...oneAsesor,
+      area: { id: oneAsesor.area?.id, nombre: oneAsesor.area?.nombre },
+      gradoAcademico: {
+        id: oneAsesor.gradoAcademico?.id,
+        nombre: oneAsesor.gradoAcademico?.nombre,
+      },
+    };
+    return asesorDto;
+  }
+
+  async asesorPorArea(id_area: string) {
+    const asesorArea = await this.asesorRepo.find({
+      where: { area: { id: id_area } },
+      select: ['id', 'nombre', 'apellido'],
+    });
+    if (asesorArea.length === 0)
+      throw new NotFoundException('No hay asesor con esa area');
+    return asesorArea;
+  }
+  async crearAsesor(data: createAsesorDto) {
+    let savedUser;
+
+    // 1️⃣ Verificar si ya existe un asesor con ese email
+    const exist = await this.asesorRepo.findOneBy({ email: data.email });
+    if (exist) throw new ConflictException('Ya existe ese asesor');
+
+    // 2️⃣ Obtener el rol de Asesor
+    const rolAsesor = await this.rolRepo.findOneBy({ nombre: UserRole.ASESOR });
+    if (!rolAsesor) throw new NotFoundException('El rol ASESOR no existe');
+
+    // 3️⃣ Crear usuario con rol
+    const dataUser = {
+      username: data.email,
+      password: data.dni,
+      estado: true,
+      rol: rolAsesor, // asignamos el rol correctamente
+    };
+    savedUser = await this.usuarioService.createUserDefault(dataUser);
+
+    // 4️⃣ Buscar entidades relacionadas
+    const areaAsesorSearch = await this.areaRepo.findOneBy({ id: data.area });
+    const gradoAcademicoSearch = await this.gradoAcademicoRepo.findOneBy({
+      id: data.gradoAcademico,
+    });
+
+    if (!areaAsesorSearch || !gradoAcademicoSearch)
+      throw new NotFoundException('Algunas entidades relacionadas no existen');
+
+    // 5️⃣ Crear y guardar asesor
+    const asesor = this.asesorRepo.create({
+      ...data,
+      area: areaAsesorSearch,
+      gradoAcademico: gradoAcademicoSearch,
+      usuario: savedUser,
+    });
+
+    return await this.asesorRepo.save(asesor);
+  }
+  
+  async patchAsesor(id: number, data: UpdateAsesorDto) {
+    if (!Object.keys(data).length) {
+      throw new BadRequestException('No hay contenido a actualizar');
     }
-
-    async listOneAsesor(id: number): Promise<listarAsesorDto> {
-        const oneAsesor = await this.asesorRepo.findOne({ where: { id }, relations: ['area', 'gradoAcademico'] })
-        if (oneAsesor === null) throw new Error("No hay un asesor con ese ID")
-        const asesorDto: listarAsesorDto = {
-            ...oneAsesor,
-            area: { id: oneAsesor.area?.id, nombre: oneAsesor.area?.nombre },
-            gradoAcademico: { id: oneAsesor.gradoAcademico?.id, nombre: oneAsesor.gradoAcademico?.nombre },
-
-        }
-        return asesorDto
+    const partialEntity: any = { ...data };
+    console.log(partialEntity);
+    if (data.area) {
+      partialEntity.area = { id: data.area };
     }
-
-    async asesorPorArea(id_area: string) {
-        const asesorArea = await this.asesorRepo.find({
-            where: { area: { id: id_area } },
-            select: ['id', 'nombre', 'apellido']
-        })
-        if (asesorArea.length === 0) throw new NotFoundException("No hay asesor con esa area")
-        return asesorArea
+    if (data.gradoAcademico) {
+      partialEntity.gradoAcademico = { id: data.gradoAcademico };
     }
+    const updatedAsesor = await this.asesorRepo.update({ id }, partialEntity);
 
-    async crearAsesor(data: createAsesorDto) {
-        let savedUser: CreateUserDto
+    if (updatedAsesor.affected === 0)
+      throw new NotFoundException('No se encuentra ese ID');
+    return updatedAsesor;
+  }
 
-        const exist = await this.asesorRepo.findOneBy({ email: data.email })
-        if (exist) throw new ConflictException("Ya existe ese asesor")
-        const dataUser = {
-            username: data.email,
-            password: data.dni,
-            role: UserRole.ASESOR,
-            estado: true
-        }
-        savedUser = await this.usuarioService.createUserDefault(dataUser)
-        try {
-            const areaAsesorSearch = await this.areaRepo.findOneBy({ id: data.area });
-            const gradoAcademicoSearch = await this.gradoAcademicoRepo.findOneBy({ id: data.gradoAcademico })
+  async deleteAsesor(id: number) {
+    const deleted = await this.asesorRepo.delete({ id });
+    if (deleted.affected === 0)
+      throw new NotFoundException('No se encuentra ese ID');
+    return {
+      message: 'Asesor eliminado correctamente',
+      cantidad: deleted.affected,
+    };
+  }
 
-            if (!areaAsesorSearch || !gradoAcademicoSearch) throw new NotFoundException("Algunas entidades relacionadas no existen");
+  async desactivateAsesor(id: number) {
+    const cliente = await this.asesorRepo.findOne({
+      where: { id },
+      relations: ['usuario'],
+      select: { usuario: { id: true } },
+    });
+    if (!cliente)
+      return new NotFoundException('No se encontro el cliente en la bd');
+    const id_usuario = cliente?.usuario.id;
+    if (!id_usuario) throw new NotFoundException('No se encontro el id');
 
-            const asesor = this.asesorRepo.create({
-                ...data,
-                area: areaAsesorSearch,
-                gradoAcademico: gradoAcademicoSearch,
-                usuario: savedUser
-            })
-            return await this.asesorRepo.save(asesor)
-        } catch (err) {
-           throw new BadRequestException(err.message || "Error al crear el asesor");
-        }
+    const response = await this.usuarioService.desactivateUser(id_usuario);
+    return {
+      message: 'Usuario desactivado correctamente',
+      affectado: response,
+    };
+  }
+
+  async getDatosAsesorByAsesoramiento(id: number) {
+    const datosAsesor =
+      await this.asesoramientoService.getInfoAsesorbyAsesoramiento(id);
+    return datosAsesor;
+  }
+
+  async getAsesoramientoyDelegado(id_asesor: number) {
+    console.log(id_asesor);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const delegadoYAsesoria =
+        await this.procesosAsesoriaService.getDelegadoAndIdAsesoramiento(
+          id_asesor,
+          queryRunner.manager,
+        );
+      await queryRunner.commitTransaction();
+      return delegadoYAsesoria;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw new InternalServerErrorException(`Error ${err.message}`);
+    } finally {
+      await queryRunner.release();
     }
+  }
 
-    async patchAsesor(id: number, data: UpdateAsesorDto) {
-        if (!Object.keys(data).length) {
-            throw new BadRequestException("No hay contenido a actualizar")
-        }
-        const partialEntity: any = { ...data };
-        console.log(partialEntity)
-        if (data.area) {
-            partialEntity.area = { id: data.area };
-        }
-        if (data.gradoAcademico) {
-            partialEntity.gradoAcademico = { id: data.gradoAcademico };
-        }
-        const updatedAsesor = await this.asesorRepo.update(
-            { id },
-            partialEntity)
-
-        if (updatedAsesor.affected === 0) throw new NotFoundException("No se encuentra ese ID")
-        return updatedAsesor
+  async getCredentialsBySector(id: number) {
+    const datosAsesor = await this.asesorRepo.findOne({
+      where: { id },
+      relations: ['area'],
+    });
+    if (!datosAsesor) throw new NotFoundException('No se encontro el asesor');
+    console.log(datosAsesor);
+    if (['Ingenieria', 'Salud'].includes(datosAsesor.area.nombre)) {
+      return {
+        correo: `${String(process.env.S1_EMAIL)}`,
+        client_id: `${String(process.env.S1_CLIENT_ID)}`,
+        client_secret: `${String(process.env.S1_CLIENT_SECRET)}`,
+        client_account_id: `${process.env.S1_ACCOUNT_ID}`,
+      };
     }
-
-    async deleteAsesor(id: number) {
-        const deleted = await this.asesorRepo.delete({ id })
-        if (deleted.affected === 0) throw new NotFoundException("No se encuentra ese ID")
-        return {
-            message: "Asesor eliminado correctamente", cantidad: deleted.affected
-        }
+    if (['Negocio', 'Social', 'Legal'].includes(datosAsesor.area.nombre)) {
+      return {
+        correo: `${String(process.env.S2_EMAIL)}`,
+        client_id: `${String(process.env.S2_CLIENT_ID)}`,
+        client_secret: `${String(process.env.S2_CLIENT_SECRET)}`,
+        client_account_id: `${process.env.S2_ACCOUNT_ID}`,
+      };
+    } else {
+      throw new InternalServerErrorException('no se encuentra esa area');
     }
-
-    async desactivateAsesor(id: number) {
-        const cliente = await this.asesorRepo.findOne({
-            where: { id },
-            relations: ['usuario'],
-            select: { usuario: { id: true } }
-        })
-        if (!cliente) return new NotFoundException("No se encontro el cliente en la bd")
-        const id_usuario = cliente?.usuario.id
-        if (!id_usuario) throw new NotFoundException("No se encontro el id")
-
-        const response = await this.usuarioService.desactivateUser(id_usuario)
-        return { message: "Usuario desactivado correctamente", affectado: response }
-    }
-
-    async getDatosAsesorByAsesoramiento(id: number) {
-        const datosAsesor = await this.asesoramientoService.getInfoAsesorbyAsesoramiento(id)
-        return datosAsesor
-    }
-
-    async getAsesoramientoyDelegado(id_asesor: number) {
-        console.log(id_asesor)
-        const queryRunner = this.dataSource.createQueryRunner()
-        await queryRunner.connect()
-        await queryRunner.startTransaction()
-        try {
-            const delegadoYAsesoria = await this.procesosAsesoriaService.getDelegadoAndIdAsesoramiento(id_asesor, queryRunner.manager)
-            await queryRunner.commitTransaction()
-            return delegadoYAsesoria
-        } catch (err) {
-            await queryRunner.rollbackTransaction()
-            throw new InternalServerErrorException(`Error ${err.message}`)
-        } finally {
-            await queryRunner.release()
-        }
-    }
-
-    async getCredentialsBySector(id: number) {
-        const datosAsesor = await this.asesorRepo.findOne({ where: { id }, relations: ['area'] })
-        if (!datosAsesor) throw new NotFoundException("No se encontro el asesor")
-        console.log(datosAsesor)
-        if (['Ingenieria', 'Salud'].includes(datosAsesor.area.nombre)) {
-            return {
-                "correo": `${String(process.env.S1_EMAIL)}`,
-                "client_id": `${String(process.env.S1_CLIENT_ID)}`,
-                "client_secret": `${String(process.env.S1_CLIENT_SECRET)}`,
-                "client_account_id": `${process.env.S1_ACCOUNT_ID}`
-            }
-        }
-        if (['Negocio', 'Social','Legal'].includes(datosAsesor.area.nombre)) {
-            return {
-                "correo": `${String(process.env.S2_EMAIL)}`,
-                "client_id": `${String(process.env.S2_CLIENT_ID)}`,
-                "client_secret": `${String(process.env.S2_CLIENT_SECRET)}`,
-                "client_account_id": `${process.env.S2_ACCOUNT_ID}`
-            }
-        }
-        else {
-            throw new InternalServerErrorException("no se encuentra esa area")
-        }
-    }
+  }
 }
