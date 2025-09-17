@@ -47,35 +47,47 @@ export class AsesoramientoController {
     return this.asesoramientoService.listar_por_id(id);
   }
 
-  
   @Get('verInduccion/:id')
-  getVerInduccionCliente(@Param('id', ParseIntPipe) id:number){
+  getVerInduccionCliente(@Param('id', ParseIntPipe) id: number) {
     return this.asesoramientoService.getVerInduccionCliente(id);
-  }  
+  }
 
   @Get('/listarAsignados')
-  listarAsignados(){
+  listarAsignados() {
     return this.asesoramientoService.listarAsignados();
   }
 
-  @Get('listarNoAsignados')
-  listarNoAsignados(){
-    return this.asesoramientoService.listarSinAsignar();
-  }
+  @Post('crear-y-asignar')
+  async crearYAsignar(
+    @Body()
+    body: {
+      asesorId: number;
+      clientesIds: number[];
+      profesionAsesoria: string;
+      area: string; // solo para la respuesta
+    },
+  ) {
+    const { asesorId, clientesIds, profesionAsesoria, area } = body;
 
+    // Llamamos al servicio que crea el asesoramiento y asigna los clientes
+    return this.asesoramientoService.crearYAsignarAsesoramiento(
+      asesorId,
+      clientesIds,
+      profesionAsesoria,
+      area,
+    );
+  }
   //falta terminar esta API , primero deberia crearse la asignacion supervisor , asesor-cliente
   @Get('listarContratosSinAsignar')
-  listarContratosSinAsignar(){
+  listarContratosSinAsignar() {
     return this.asesoramientoService.listarContratosSinAsignar();
   }
 
   @Get('ListarContratosAsignados')
-  listarContratosAsignados(){
+  listarContratosAsignados() {
     return this.asesoramientoService.listarContratosAsignados();
   }
 
-
-  
   @Post('asignacion')
   create(@Body() body: AsesoramientoWrpDTO) {
     return this.asesoramientoService.create(

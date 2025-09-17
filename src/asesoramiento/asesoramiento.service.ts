@@ -316,25 +316,27 @@ export class AsesoramientoService {
   }
 
   async listarAsignados() {
+    // 1️⃣ Traemos todos los asesoramientos activos con info de delegado si existe
     const listar = await this.dataSource.query(`
-        SELECT 
-          a.id as id_asesoramiento,
-          concat(c.nombre,'',c.apellido) as delegado,
-          con.fecha_inicio as fechaAsignacion,
-          t.nombre as tipotrabajo,
-          ar.nombre as area,
-          ase.nombre as asesor,
-          a.estado as estado
-        FROM  asesoramiento  a
-          INNER JOIN procesos_asesoria pr ON a.id = pr.id_asesoramiento
-          INNER JOIN cliente c ON pr.id_cliente = c.id
-          INNER JOIN asesor ase ON pr.id_asesor = ase.id
-          INNER JOIN area ar ON ase.id_area = ar.id
-          INNER JOIN contrato con ON a.id = con.id_asesoramiento
-          INNER JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
-        WHERE pr.esDelegado = true  ;
-        
-        `);
+    SELECT 
+      a.id as id_asesoramiento,
+      CONCAT(c.nombre,' ',c.apellido) as delegado,
+      con.fecha_inicio as fechaAsignacion,
+      t.nombre as tipotrabajo,
+      ar.nombre as area,
+      ase.nombre as asesor,
+      a.estado as estado
+    FROM asesoramiento a
+      LEFT JOIN procesos_asesoria pr ON a.id = pr.id_asesoramiento AND pr.esDelegado = 1
+      LEFT JOIN cliente c ON pr.id_cliente = c.id
+      LEFT JOIN asesor ase ON pr.id_asesor = ase.id
+      LEFT JOIN area ar ON ase.id_area = ar.id
+      LEFT JOIN contrato con ON a.id = con.id_asesoramiento
+      LEFT JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
+    WHERE a.estado = 'activo';
+  `);
+
+    // 2️⃣ Agregamos los clientes asignados a cada asesoramiento
     const listclientes = await Promise.all(
       listar.map(async (asesoria) => {
         const cliente =
@@ -347,45 +349,70 @@ export class AsesoramientoService {
         };
       }),
     );
+
     return listclientes;
   }
 
-  async listarSinAsignar() {
-    const listar = await this.dataSource.query(`
-  SELECT 
-    a.id as id_asesoramiento,
-    NULL AS delegado,
-    con.fecha_inicio as fechaAsignacion,
-    t.nombre as tipotrabajo,
-    ar.nombre as area,
-    ase.nombre as asesor,
-    a.estado as estado,
-    GROUP_CONCAT(JSON_OBJECT('id_estudiante', c.id, 'estudiante', CONCAT(c.nombre,' ',c.apellido))) AS clientes
-  FROM asesoramiento a
-    LEFT JOIN procesos_asesoria pr ON a.id = pr.id_asesoramiento
-    LEFT JOIN cliente c ON pr.id_cliente = c.id
-    LEFT JOIN asesor ase ON pr.id_asesor = ase.id
-    LEFT JOIN area ar ON ase.id_area = ar.id
-    LEFT JOIN contrato con ON a.id = con.id_asesoramiento
-    LEFT JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
-  WHERE pr.id_asesor IS NULL OR pr.esDelegado = false
-  GROUP BY a.id, con.fecha_inicio, t.nombre, ar.nombre, ase.nombre, a.estado;
-`);
+  async crearYAsignarAsesoramiento(
+    asesorId: number,
+    clientesIds: number[],
+    profesionAsesoria: string,
+    area: string, // solo para la respuesta
+  ) {
+    if (!clientesIds || clientesIds.length === 0) {
+      throw new Error('Debe seleccionar al menos un cliente.');
+    }
 
-    const listclientes = await Promise.all(
-      listar.map(async (asesoria) => {
-        const cliente =
-          (await this.clienteService.listAllByAsesoramiento(
-            asesoria.id_asesoramiento,
-          )) || [];
-        return {
-          ...asesoria,
-          cliente,
-        };
-      }),
+    // Validar máximo 5 clientes
+    if (clientesIds.length > 5) {
+      throw new Error(
+        'No se puede asignar más de 5 clientes a un asesoramiento.',
+      );
+    }
+
+    // Crear un nuevo asesoramiento con la columna correcta
+    const resultado = await this.dataSource.query(
+      `INSERT INTO asesoramiento (profesion_asesoria, estado)
+     VALUES (?, 'activo')`,
+      [profesionAsesoria],
     );
 
-    return listclientes;
+    const asesoramientoId = resultado.insertId;
+
+    // Insertar los clientes en procesos_asesoria
+    for (let i = 0; i < clientesIds.length; i++) {
+      await this.dataSource.query(
+        `INSERT INTO procesos_asesoria (id_asesoramiento, id_cliente, id_asesor, esDelegado)
+       VALUES (?, ?, ?, ?)`,
+        [asesoramientoId, clientesIds[i], asesorId, i === 0 ? 1 : 0],
+      );
+    }
+
+    // Obtener nombres del asesor y clientes
+    const [asesor] = await this.dataSource.query(
+      `SELECT nombre FROM asesor WHERE id = ?`,
+      [asesorId],
+    );
+
+    const clientes = await this.dataSource.query(
+      `SELECT id, nombre FROM cliente WHERE id IN (?)`,
+      [clientesIds],
+    );
+
+    // Preparar la respuesta indicando el delegado
+    const clientesAsignados = clientes.map((c, index) => ({
+      nombre: c.nombre,
+      esDelegado: index === 0,
+    }));
+
+    return {
+      mensaje: 'Asesoramiento creado y clientes asignados correctamente',
+      asesoramientoId,
+      asesor: asesor?.nombre || null,
+      profesionAsesoria,
+      area, // solo para la respuesta
+      clientesAsignados,
+    };
   }
 
   async listarContratosSinAsignar() {
