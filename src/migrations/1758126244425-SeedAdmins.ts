@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 import * as bcrypt from "bcrypt";
 
-export class InsertAdminsAndUsers1700000000000 implements MigrationInterface {
+export class InsertAdminsAndUsers1800000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const admins = [
       {

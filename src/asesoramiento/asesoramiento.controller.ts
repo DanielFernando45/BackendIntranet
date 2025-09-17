@@ -58,6 +58,11 @@ export class AsesoramientoController {
     return this.asesoramientoService.listarAsignados();
   }
 
+  @Get('listarNoAsignados')
+  listarNoAsignados(){
+    return this.asesoramientoService.listarSinAsignar();
+  }
+
   //falta terminar esta API , primero deberia crearse la asignacion supervisor , asesor-cliente
   @Get('listarContratosSinAsignar')
   listarContratosSinAsignar(){

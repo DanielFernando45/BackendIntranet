@@ -36,7 +36,7 @@ export class AsesoramientoService {
 
     @InjectDataSource()
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   async create(
     createAsesoramientoDto: CreateAsesoramientoDto,
@@ -157,9 +157,7 @@ export class AsesoramientoService {
   async changeAsesoramiento(id: number, cambios: UpdateAsesoramientoDto) {
     // if (!Object.keys(cambios).length)
     //   throw new BadRequestException('No se envio un body para actualizar');
-
     // const partialEntity: any = { ...cambios };
-
     // const updateAsesoramiento = await this.asesoramientoRepo.update(
     //   id,
     //   cambios,
@@ -171,7 +169,7 @@ export class AsesoramientoService {
 
   async changeState(id: number) {
     const estado_asesoria = await this.asesoramientoRepo.findOneBy({ id });
-    console.log(estado_asesoria)
+    console.log(estado_asesoria);
     if (estado_asesoria?.estado === 'activo') {
       const desactAsesoria = await this.asesoramientoRepo.update(id, {
         estado: Estado_Asesoria.DESACTIVADO,
@@ -198,11 +196,10 @@ export class AsesoramientoService {
     }
   }
 
-
-
-
   async listar() {
-    const asesoramientos = await this.dataSource.getRepository(Contrato).createQueryBuilder('c')
+    const asesoramientos = await this.dataSource
+      .getRepository(Contrato)
+      .createQueryBuilder('c')
       .select([
         'DISTINCT c.id AS id_contrato',
         'c.servicio AS servicio',
@@ -287,8 +284,8 @@ export class AsesoramientoService {
     return asesoramientosWithEstudiantes;
   }
 
-    async getVerInduccionCliente(id_asesoria: number){
-       const datosclientes = await this.dataSource.query(`
+  async getVerInduccionCliente(id_asesoria: number) {
+    const datosclientes = await this.dataSource.query(`
           SELECT 
               a.id as id_asesoramiento,
               a.profesion_asesoria as referencia,
@@ -301,26 +298,25 @@ export class AsesoramientoService {
               INNER JOIN area ar ON ase.id_area = ar.id
           WHERE pr.esDelegado = true and a.id = ${id_asesoria} ;
         `);
-        //Estudiantes y asesores de asesoramiento
-        const induccion = await Promise.all(
-          datosclientes.map(async(asesoria) =>{
-            const estudiantes = 
-              (await this.clienteService.listAllByAsesoramiento(
-                asesoria.id_asesoramiento,
-              )) || [];
-              return {
-                ...asesoria,
-                estudiantes
-              };
-          }),
-        )
-  
-  
-      return induccion;
-    }
+    //Estudiantes y asesores de asesoramiento
+    const induccion = await Promise.all(
+      datosclientes.map(async (asesoria) => {
+        const estudiantes =
+          (await this.clienteService.listAllByAsesoramiento(
+            asesoria.id_asesoramiento,
+          )) || [];
+        return {
+          ...asesoria,
+          estudiantes,
+        };
+      }),
+    );
 
-    async listarAsignados() {
-      const listar = await this.dataSource.query(`
+    return induccion;
+  }
+
+  async listarAsignados() {
+    const listar = await this.dataSource.query(`
         SELECT 
           a.id as id_asesoramiento,
           concat(c.nombre,'',c.apellido) as delegado,
@@ -338,24 +334,62 @@ export class AsesoramientoService {
           INNER JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
         WHERE pr.esDelegado = true  ;
         
-        `)
-        const listclientes = await Promise.all(
-          listar.map(async( asesoria)=>{
-            const cliente = await (this.clienteService.listAllByAsesoramiento(
-              asesoria.id_asesoramiento,
-            ))||([]);
-            return {
-              ...asesoria,
-              cliente
-            }
-          })
-        )
-      return listclientes;
-    }
+        `);
+    const listclientes = await Promise.all(
+      listar.map(async (asesoria) => {
+        const cliente =
+          (await this.clienteService.listAllByAsesoramiento(
+            asesoria.id_asesoramiento,
+          )) || [];
+        return {
+          ...asesoria,
+          cliente,
+        };
+      }),
+    );
+    return listclientes;
+  }
+
+  async listarSinAsignar() {
+    const listar = await this.dataSource.query(`
+  SELECT 
+    a.id as id_asesoramiento,
+    NULL AS delegado,
+    con.fecha_inicio as fechaAsignacion,
+    t.nombre as tipotrabajo,
+    ar.nombre as area,
+    ase.nombre as asesor,
+    a.estado as estado,
+    GROUP_CONCAT(JSON_OBJECT('id_estudiante', c.id, 'estudiante', CONCAT(c.nombre,' ',c.apellido))) AS clientes
+  FROM asesoramiento a
+    LEFT JOIN procesos_asesoria pr ON a.id = pr.id_asesoramiento
+    LEFT JOIN cliente c ON pr.id_cliente = c.id
+    LEFT JOIN asesor ase ON pr.id_asesor = ase.id
+    LEFT JOIN area ar ON ase.id_area = ar.id
+    LEFT JOIN contrato con ON a.id = con.id_asesoramiento
+    LEFT JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
+  WHERE pr.id_asesor IS NULL OR pr.esDelegado = false
+  GROUP BY a.id, con.fecha_inicio, t.nombre, ar.nombre, ase.nombre, a.estado;
+`);
+
+    const listclientes = await Promise.all(
+      listar.map(async (asesoria) => {
+        const cliente =
+          (await this.clienteService.listAllByAsesoramiento(
+            asesoria.id_asesoramiento,
+          )) || [];
+        return {
+          ...asesoria,
+          cliente,
+        };
+      }),
+    );
+
+    return listclientes;
+  }
 
   async listarContratosSinAsignar() {
-    const listar = await this.dataSource.query(``)
-
+    const listar = await this.dataSource.query(``);
   }
 
   async listarContratosAsignados() {
@@ -374,8 +408,8 @@ export class AsesoramientoService {
         INNER JOIN cliente c ON p.id_cliente = c.id 
         INNER JOIN tipo_pago tp ON con.id_tipoPago = tp.id
       WHERE p.esDelegado = true 
-      `)
-      return listar;
+      `);
+    return listar;
   }
 
   async listar_segun_fecha(fecha_limite: Date) {
@@ -464,11 +498,9 @@ export class AsesoramientoService {
     //   id_asesor = updateAsesoramientoDto.id_asesor;
     //   delete updateAsesoramientoDto.id_asesor;
     // }
-
     // const queryRunner = this.dataSource.createQueryRunner();
     // await queryRunner.connect();
     // await queryRunner.startTransaction();
-
     // try {
     //   if (
     //     updateAsesoramientoDto.fecha_inicio &&
@@ -487,26 +519,20 @@ export class AsesoramientoService {
     //     delete updated.id_contrato;
     //     updated['tipoContrato'] = { id: updateAsesoramientoDto.id_contrato };
     //   }
-
     //   if (updateAsesoramientoDto.id_tipo_trabajo) {
     //     delete updated.id_tipo_trabajo;
     //     updated['tipoTrabajo'] = { id: updateAsesoramientoDto.id_tipo_trabajo };
     //   }
-
     //   await queryRunner.manager.update(Asesoramiento, { id }, { ...updated });
-
     //   const clienteIds: number[] = Object.values(clientes).filter(
     //     (id) => typeof id === 'number' && id > 0,
     //   );
-
     //   // console.log("ClientesId ",clienteIds)
-
     //   if (clienteIds.length === 0) {
     //     throw new BadRequestException(
     //       'Debe proporcionar al menos un cliente válido',
     //     );
     //   }
-
     //   const procesosActuales = await queryRunner.manager.find(
     //     ProcesosAsesoria,
     //     {
@@ -514,14 +540,10 @@ export class AsesoramientoService {
     //       order: { id: 'ASC' }, // Importante para que se mantenga el orden y se puedan comparar
     //     },
     //   );
-
     //   // console.log("Proceso actuales: ",procesosActuales)
-
     //   const cantidadActual = procesosActuales.length;
     //   const cantidadNueva = clienteIds.length;
-
     //   const cantidadActualizar = Math.min(cantidadActual, cantidadNueva);
-
     //   let esDelegado = false;
     //   for (let i = 0; i < cantidadActualizar; i++) {
     //     esDelegado = i == 0 ? true : false;
@@ -535,7 +557,6 @@ export class AsesoramientoService {
     //       procesosActuales[i].id,
     //     );
     //   }
-
     //   // 5. Agregar nuevos si hay más clientes
     //   if (cantidadNueva > cantidadActualizar) {
     //     for (let i = cantidadActualizar; i < cantidadNueva; i++) {
@@ -558,7 +579,6 @@ export class AsesoramientoService {
     //       );
     //     }
     //   }
-
     //   await queryRunner.commitTransaction();
     //   return 'Actualizado satisfactoriamente';
     // } catch (err) {
@@ -690,7 +710,9 @@ export class AsesoramientoService {
     return datosContrato;
   }
 
-  async listAsesoriasSinpagos(tipoContrato: string,): Promise<listAsesoramientoYDelegadoDto[]> {
+  async listAsesoriasSinpagos(
+    tipoContrato: string,
+  ): Promise<listAsesoramientoYDelegadoDto[]> {
     const datosAsesoramiento = await this.asesoramientoRepo
       .createQueryBuilder('ase')
       .leftJoin('ase.informacion_pago', 'infoPago')
