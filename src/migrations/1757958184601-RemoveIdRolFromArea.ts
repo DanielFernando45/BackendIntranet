@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class RemoveIdRolFromArea1680000000001 implements MigrationInterface {
-  name = 'RemoveIdRolFromArea1680000000001';
+export class RemoveIdRolFromArea1757958184601 implements MigrationInterface {
+  name = 'RemoveIdRolFromArea1757958184601';
 
   public async up(q: QueryRunner): Promise<void> {
     // 1) Si no existe la tabla, no hay nada que hacer (BD nueva)

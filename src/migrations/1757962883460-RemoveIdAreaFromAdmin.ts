@@ -1,8 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class RemoveIdAreaFromAdmin1680000000002 implements MigrationInterface {
-  name = 'RemoveIdAreaFromAdmin1680000000002';
-
+export class RemoveIdAreaFromAdmin1757962883460 implements MigrationInterface {
+  name = 'RemoveIdAreaFromAdmin1757962883460';
   public async up(q: QueryRunner): Promise<void> {
     // 1. Verificar si existe la tabla admin
     const hasAdmin = await q.hasTable('admin');

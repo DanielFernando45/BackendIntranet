@@ -1,8 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class RemoveAreaAsesor1757965051585 implements MigrationInterface {
+export class RemoveAreaAsesor1757965051583 implements MigrationInterface {
 
-    name = 'RemoveAreaAsesor1757965051585'
+    name = 'RemoveAreaAsesor1757965051583'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // Eliminamos la tabla area_asesor si existe

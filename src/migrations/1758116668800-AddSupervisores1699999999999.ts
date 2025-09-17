@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 
-export class AddSupervisores1699999999999 implements MigrationInterface {
+export class AddSupervisores1758116668800 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const supervisores = [
       {

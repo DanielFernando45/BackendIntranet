@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner, TableForeignKey } from 'typeorm';
 
-export class RemoveIdSupervisorFromAsesor1699999999999
+export class RemoveIdSupervisorFromAsesor1758058633614
   implements MigrationInterface
 {
   public async up(queryRunner: QueryRunner): Promise<void> {
