@@ -10,6 +10,7 @@ import { UserRole, Usuario } from 'src/usuario/usuario.entity';
 import { UpdateSupervisorDto } from './dto/update-supervisor-dto';
 import { UsuarioService } from 'src/usuario/usuario.service';
 import { Rol } from 'src/rol/entities/rol.entity';
+import { Asesor } from 'src/asesor/asesor.entity';
 
 @Injectable()
 export class SupervisorService {
@@ -22,6 +23,9 @@ export class SupervisorService {
 
     @InjectRepository(Area)
     private areaRepo: Repository<Area>,
+
+    @InjectRepository(Asesor)
+    private asesorRepo: Repository<Asesor>,
   ) {}
 
   async createSupervisor(data: createSupervisorDto) {
@@ -207,7 +211,7 @@ export class SupervisorService {
       message: '✅ Supervisor actualizado correctamente',
       supervisor: {
         ...savedSupervisor,
-        areas: data.areasIds || supervisor.area?.map((a) => a.id) || [],
+        areas: data.areasIds || supervisor.areas?.map((a) => a.id) || [],
       },
     };
   }
@@ -296,31 +300,53 @@ export class SupervisorService {
   // Método para desasignar áreas del supervisor
   async unassignAreasFromSupervisor(supervisorId: string, areasIds: string[]) {
     const areas = await this.areaRepo.find({
-      where: {
-        id: In(areasIds),
-        supervisor: { id: supervisorId },
-      },
-    });
-
-    for (const area of areas) {
-      area.supervisor = null;
-      await this.areaRepo.save(area);
-    }
-
-    return areas;
-  }
-
-  async getAreaBySupervisor(id: string) {
-    const areas = await this.areaRepo.find({
-      where: { supervisor: { id } },
+      where: { id: In(areasIds), supervisor: { id: supervisorId } },
       relations: ['supervisor'],
     });
 
-    if (areas.length === 0)
-      throw new BadRequestException('El supervisor no tiene áreas asignadas');
-    return areas;
-  }
+    if (!areas.length) {
+      return {
+        message: 'No se encontraron áreas asignadas a este supervisor',
+        areas: [],
+      };
+    }
 
+    await this.areaRepo.update(
+      { id: In(areas.map((a) => a.id)) },
+      { supervisor: null },
+    );
+
+    return {
+      message: `Se desasignaron ${areas.length} área(s) del supervisor`,
+      areas,
+    };
+  }
+  async getAreasBySupervisor(id: string) {
+    const areas = await this.areaRepo.find({
+      where: { supervisor: { id } },
+      relations: ['supervisor', 'asesor'], // actualizado: se usa 'asesor' en lugar de 'asesores'
+    });
+
+    if (areas.length === 0) {
+      throw new BadRequestException('El supervisor no tiene áreas asignadas');
+    }
+
+    // Transformamos los datos para devolver solo lo necesario
+    return areas.map((area) => ({
+      id: area.id,
+      nombre: area.nombre,
+      supervisor: {
+        id: area.supervisor ? area.supervisor.id : '',
+        nombre: area.supervisor ? area.supervisor.nombre : '',
+        email: area.supervisor ? area.supervisor.email : '',
+      },
+      asesores: area.asesor.map((asesor) => ({
+        id: asesor.id,
+        nombre: asesor.nombre,
+        email: asesor.email,
+      })),
+    }));
+  }
   // Método para obtener supervisor con sus áreas
   async getSupervisorWithAreas(id: string) {
     const supervisor = await this.supervisorRepo.findOne({

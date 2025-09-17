@@ -8,11 +8,19 @@ import { AreaModule } from 'src/area/area.module';
 import { UsuarioService } from 'src/usuario/usuario.service';
 import { AreaService } from 'src/area/area.service';
 import { UsuarioModule } from 'src/usuario/usuario.module';
+import { Asesor } from 'src/asesor/asesor.entity';
+import { AsesorModule } from 'src/asesor/asesor.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Supervisor, Area]), AreaModule, UsuarioModule],
+  imports: [
+    TypeOrmModule.forFeature([Supervisor, Area, Asesor]),
+    AreaModule,
+    UsuarioModule,
+    AsesorModule,
+  ],
+
   controllers: [SupervisorController],
   providers: [SupervisorService],
-  exports: [SupervisorService]
+  exports: [SupervisorService],
 })
 export class SupervisorModule {}

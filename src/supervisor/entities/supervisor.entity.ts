@@ -32,7 +32,7 @@ export class Supervisor {
   usuario: Usuario;
 
   @OneToMany(() => Area, (area) => area.supervisor)
-  area: Area[];
+  areas: Area[];
 
   @OneToMany(() => Asesor, (asesor) => asesor.area)
   asesor: Asesor[];

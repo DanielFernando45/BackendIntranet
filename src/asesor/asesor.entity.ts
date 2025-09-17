@@ -37,10 +37,6 @@ export class Asesor{
     @ManyToOne(() => GradoAcademico)
     @JoinColumn({ name: 'id_grado_academico' }) // nombre de la columna en la tabla Cliente
     gradoAcademico: GradoAcademico;
-
-    @ManyToOne( () => Supervisor)
-    @JoinColumn({ name: 'id_supervisor' })
-    supervisor: Supervisor;
     
     @ManyToOne(() => Area)
     @JoinColumn({ name: 'id_area' })

@@ -46,123 +46,89 @@ export class AuthService {
     }
     return user;
   }
-
   async login(user: Usuario) {
-    // console.log(user)
-    let datos: { id: number; nombre: string; area?: string } = {
-      id: 0,
-      nombre: '',
-      area: '',
-    };
+    if (!user.estado) {
+      throw new NotFoundException(
+        'El usuario está inactivo, por favor contacta al administrador',
+      );
+    }
+
     const payload = {
       sub: user.id,
       username: user.username,
       role: user.rol.nombre,
     };
 
-    if (user.rol.nombre === 'admin') {
-      const getInfoAdmin = await this.adminRepo
-        .createQueryBuilder('admin')
-        .select([
-          'admin.id as id',
-          'admin.nombre as nombre',
-          'area.id as id_area',
-        ])
-        .leftJoin('admin.usuario', 'usuario')
-        .leftJoin('admin.area', 'area')
-        .where('usuario.id = :id', { id: user.id })
-        .getRawOne();
-      // const getInfoAdmin = await this.adminRepo.findOne({
-      //   where: { usuario: { id: user.id } },
-      //   relations: ['usuario'],
-      //   select: ['id', 'nombre'],
-      // });
-      if (getInfoAdmin === null) {
-        throw new NotFoundException(
-          'No se encontró un administrador con ese ID',
+    const datos = {
+      id: user.id,
+      nombre: user.username,
+      area: 'Área no asignada',
+    };
+
+    const relationName = user.rol.nombre.toLowerCase();
+
+    const usuarioRelation = this.usuarioRepo.metadata.relations.find(
+      (r) => r.propertyName === relationName,
+    );
+
+    if (usuarioRelation) {
+      try {
+        const roleAlias = relationName;
+        let qb = this.usuarioRepo
+          .createQueryBuilder('usuario')
+          .leftJoinAndSelect(`usuario.${relationName}`, roleAlias);
+
+        const roleMetadata = usuarioRelation.inverseEntityMetadata;
+
+        const areaRelation = roleMetadata.relations.find(
+          (r) => r.propertyName === 'area' || r.propertyName === 'areas',
         );
-      }
-      if (!getInfoAdmin) {
-        throw new NotFoundException(
-          'No se encontró un administrador con ese ID',
+
+        if (areaRelation) {
+          qb = qb.leftJoinAndSelect(
+            `${roleAlias}.${areaRelation.propertyName}`,
+            'areas',
+          );
+        }
+
+        const usuarioConRol = await qb
+          .where('usuario.id = :id', { id: user.id })
+          .getOne();
+
+        console.log(
+          'DEBUG usuario con rol y áreas:',
+          JSON.stringify(usuarioConRol, null, 2),
         );
+
+        const roleEntity = usuarioConRol
+          ? (usuarioConRol as any)[relationName]
+          : null;
+
+        if (roleEntity) {
+          datos.id = roleEntity.id ?? datos.id;
+          datos.nombre = roleEntity.nombre ?? datos.nombre;
+
+          if (areaRelation) {
+            const areas = roleEntity[areaRelation.propertyName];
+            console.log('DEBUG áreas encontradas:', areas);
+
+            if (Array.isArray(areas)) {
+              // Caso Supervisor → varias áreas
+              datos.area =
+                areas.length > 0
+                  ? areas.map((a: any) => a.nombre).join(', ')
+                  : 'Sin áreas';
+            } else if (areas) {
+              // Caso Asesor → un solo área
+              datos.area = areas.nombre ?? 'Área no asignada';
+            } else {
+              datos.area = 'Área no asignada';
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error cargando relación dinámica:', err);
       }
-
-      datos = {
-        id: getInfoAdmin.id,
-        nombre: getInfoAdmin.nombre,
-        area: getInfoAdmin.id_area, // aquí ya puedes acceder al id del área
-      };
-    }
-
-    if (user.rol.nombre === 'asesor') {
-      // const getInfoAsesor = await this.asesorRepo.findOne({
-      //   where: { usuario: { id: user.id } },
-      //   relations: ['usuario'],
-      //   select: ['id', 'nombre'],
-      // });
-
-      const getInfoAsesor = await this.asesorRepo
-        .createQueryBuilder('asesor')
-        .select([
-          'asesor.id as id',
-          'asesor.nombre as nombre',
-          'area.id as area_id',
-        ])
-        .leftJoin('asesor.area', 'area')
-        .innerJoin('asesor.usuario', 'usuario')
-        .where('usuario.id = :id', { id: user.id })
-        .getRawOne();
-      if (getInfoAsesor === null || getInfoAsesor === undefined) {
-        throw new NotFoundException('No se encontró un asesor con ese ID');
-      }
-      datos = {
-        id: getInfoAsesor.id,
-        nombre: getInfoAsesor.nombre,
-        area: getInfoAsesor.area_id ?? 'Area no asignada',
-      };
-    }
-    if (user.rol.nombre === 'estudiante') {
-      const getInfoCliente = await this.clienteRepo.findOne({
-        where: { usuario: { id: user.id } },
-        relations: ['usuario'],
-        select: ['id', 'nombre'],
-      });
-      if (getInfoCliente === null) {
-        throw new NotFoundException('No se encontró un estudiante con ese ID');
-      }
-      datos = getInfoCliente;
-    }
-
-    if (datos.id === 0 && datos.nombre === '') {
-      // if (user.role != 'admin' && user.role != 'asesor' && user.role != 'estudiante') {
-      const getInfoAdmin = await this.adminRepo
-        .createQueryBuilder('admin')
-        .select([
-          'admin.id as id',
-          'admin.nombre as nombre',
-          'area.id as id_area',
-        ])
-        .innerJoin('admin.usuario', 'usuario')
-        .leftJoin('admin.area', 'area')
-        .where('usuario.id = :id', { id: user.id })
-        .getRawOne();
-      console.log(getInfoAdmin);
-      if (getInfoAdmin === null) {
-        throw new NotFoundException('No se encontró un usuario con ese ID');
-      }
-
-      datos = {
-        id: getInfoAdmin.id,
-        nombre: getInfoAdmin.nombre,
-        area: getInfoAdmin.id_area, // aquí ya puedes acceder al id del área
-      };
-    }
-
-    if (user.estado === false) {
-      throw new NotFoundException(
-        'El usuario está inactivo, por favor contacta al administrador',
-      );
     }
 
     return {
@@ -172,11 +138,11 @@ export class AuthService {
         id: datos.id,
         nombre: datos.nombre,
         role: user.rol,
-        id_area: datos.area,
+        area: datos.area,
       },
     };
   }
-
+  
   async sendMailPassword(email: string) {
     const url_codified = this.jwtService.sign(
       { email },
@@ -207,7 +173,7 @@ export class AuthService {
 
     return { message: 'Contraseña cambiada correctamente' };
   }
-  
+
   async changePassword(
     id: number,
     oldPassword: string,

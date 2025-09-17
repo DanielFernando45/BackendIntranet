@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, Put, Get, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Param, Put, Get, Delete, Patch } from '@nestjs/common';
 import { SupervisorService } from './supervisor.service';
 import { createSupervisorDto } from './dto/crear-supervisor.dto';
 
@@ -32,7 +32,7 @@ export class SupervisorController {
         return this.supervisorService.assignAreasToSupervisor(id, areasIds);
     }
 
-    @Put('quitar-areasAsesor/:id')
+    @Patch('quitar-areasAsesor/:id')
     async unassignAreas(
         @Param('id') id: string,
         @Body('areasIds') areasIds: string[]
@@ -42,7 +42,7 @@ export class SupervisorController {
 
     @Get('areas/:id')
     async getAreas(@Param('id') id: string) {
-        return this.supervisorService.getAreaBySupervisor(id);
+        return this.supervisorService.getAreasBySupervisor(id);
     }
 
     @Get(':id')
