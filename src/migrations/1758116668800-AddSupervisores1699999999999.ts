@@ -34,14 +34,16 @@ export class AddSupervisores1699999999999 implements MigrationInterface {
       },
     ];
 
+    const supervisorRoleId = '8ae7ea2a-1409-4fba-99d0-bd5772a7a13f';
+
     for (const sup of supervisores) {
       const hashedPassword = await bcrypt.hash(sup.dni, 10);
 
-      // 🔹 Crear usuario AUTO_INCREMENT
+      // 🔹 Crear usuario AUTO_INCREMENT con rol de supervisor
       const result = await queryRunner.query(
-        `INSERT INTO usuarios (username, password, estado)
-         VALUES (?, ?, true)`,
-        [sup.email, hashedPassword],
+        `INSERT INTO usuarios (username, password, estado, id_rol)
+         VALUES (?, ?, true, ?)`,
+        [sup.email, hashedPassword, supervisorRoleId],
       );
 
       // 🔹 Obtener el ID generado automáticamente
