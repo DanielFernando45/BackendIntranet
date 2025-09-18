@@ -1,32 +1,32 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
-import * as bcrypt from "bcrypt";
+import { MigrationInterface, QueryRunner } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 
 export class InsertAdminsAndUsers1800000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const admins = [
       {
-        nombre: "Katy Moreno",
-        email: "KatyContratopago@alejandria.com",
-        dni: "12345678",
-        id_rol: "59da2443-3149-4701-a4de-a313b55d24d0", // contrato_pago
+        nombre: 'Katy Moreno',
+        email: 'KatyContratopago@alejandria.com',
+        dni: '12345678',
+        id_rol: '59da2443-3149-4701-a4de-a313b55d24d0', // contrato_pago
       },
       {
-        nombre: "Lucia Estrada",
-        email: "LuciaMarketing@alejandria.com",
-        dni: "87654321",
-        id_rol: "943aa71e-5781-4837-8670-14e829043ea1", // marketing
+        nombre: 'Lucia Estrada',
+        email: 'LuciaMarketing@alejandria.com',
+        dni: '87654321',
+        id_rol: '943aa71e-5781-4837-8670-14e829043ea1', // marketing
       },
       {
-        nombre: "Oficina TI",
-        email: "OficinaTISoporte@alejandria.com",
-        dni: "11223344",
-        id_rol: "59c0674a-6760-418c-a1e2-a825e24ec87b", // soporte
+        nombre: 'Oficina TI',
+        email: 'OficinaTISoporte@alejandria.com',
+        dni: '11223344',
+        id_rol: '59c0674a-6760-418c-a1e2-a825e24ec87b', // soporte
       },
       {
-        nombre: "Karen Moreno",
-        email: "KarenOperaciones@alejandria.com",
-        dni: "99887766",
-        id_rol: "f56b13ac-c6fb-4458-ae6d-d49d906baa4e", // jefe_operaciones
+        nombre: 'Karen Moreno',
+        email: 'KarenOperaciones@alejandria.com',
+        dni: '99887766',
+        id_rol: 'f56b13ac-c6fb-4458-ae6d-d49d906baa4e', // jefe_operaciones
       },
     ];
 
@@ -57,22 +57,18 @@ export class InsertAdminsAndUsers1800000000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     const emails = [
-      "KatyContratopago@alejandria.com",
-      "LuciaMarketing@alejandria.com",
-      "OficinaTISoporte@alejandria.com",
-      "KarenOperaciones@alejandria.com",
+      'KatyContratopago@alejandria.com',
+      'LuciaMarketing@alejandria.com',
+      'OficinaTISoporte@alejandria.com',
+      'KarenOperaciones@alejandria.com',
     ];
 
     // 🔹 Borrar de admin
-    await queryRunner.query(
-      `DELETE FROM admin WHERE email IN (?)`,
-      [emails],
-    );
+    await queryRunner.query(`DELETE FROM admin WHERE email IN (?)`, [emails]);
 
     // 🔹 Borrar de usuarios
-    await queryRunner.query(
-      `DELETE FROM usuarios WHERE username IN (?)`,
-      [emails],
-    );
+    await queryRunner.query(`DELETE FROM usuarios WHERE username IN (?)`, [
+      emails,
+    ]);
   }
 }

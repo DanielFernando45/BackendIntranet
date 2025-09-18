@@ -16,8 +16,6 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, QueryRunner } from 'typeorm';
 import { clientesExtraDTO } from 'src/procesos_asesoria/dto/clientes_extra.dto';
-import { DatosAsesoramientoDto } from 'src/cliente/dto/listar-clientes.dto';
-import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
 import { ClienteService } from 'src/cliente/cliente.service';
 import { listAsesoramientoYDelegadoDto } from './dto/list-asesoramiento-delegado.dto';
 import { Contrato } from 'src/contrato/entities/contrato.entity';
@@ -152,19 +150,6 @@ export class AsesoramientoService {
     //     : 'Por asignar',
     // };
     return datosAsesoramiento;
-  }
-
-  async changeAsesoramiento(id: number, cambios: UpdateAsesoramientoDto) {
-    // if (!Object.keys(cambios).length)
-    //   throw new BadRequestException('No se envio un body para actualizar');
-    // const partialEntity: any = { ...cambios };
-    // const updateAsesoramiento = await this.asesoramientoRepo.update(
-    //   id,
-    //   cambios,
-    // );
-    // if (updateAsesoramiento.affected === 0)
-    //   throw new NotFoundException('No hay registro a afectar');
-    // return `Se cambio el asesor correctamente por el de ID ${id}`;
   }
 
   async changeState(id: number) {
@@ -319,33 +304,37 @@ export class AsesoramientoService {
     // 1️⃣ Traemos todos los asesoramientos activos con info de delegado si existe
     const listar = await this.dataSource.query(`
     SELECT 
-      a.id as id_asesoramiento,
-      CONCAT(c.nombre,' ',c.apellido) as delegado,
-      con.fecha_inicio as fechaAsignacion,
-      t.nombre as tipotrabajo,
-      ar.nombre as area,
-      ase.nombre as asesor,
-      a.estado as estado
+      a.id AS id_asesoramiento,
+      CONCAT(c.nombre,' ',c.apellido) AS delegado,
+      t.nombre AS tipotrabajo,
+      ar.nombre AS area,
+      ase.nombre AS asesor,
+      a.estado AS estado
     FROM asesoramiento a
-      LEFT JOIN procesos_asesoria pr ON a.id = pr.id_asesoramiento AND pr.esDelegado = 1
-      LEFT JOIN cliente c ON pr.id_cliente = c.id
-      LEFT JOIN asesor ase ON pr.id_asesor = ase.id
-      LEFT JOIN area ar ON ase.id_area = ar.id
-      LEFT JOIN contrato con ON a.id = con.id_asesoramiento
-      LEFT JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
+      LEFT JOIN procesos_asesoria pr 
+        ON a.id = pr.id_asesoramiento AND pr.esDelegado = 1
+      LEFT JOIN cliente c 
+        ON pr.id_cliente = c.id
+      LEFT JOIN asesor ase 
+        ON pr.id_asesor = ase.id
+      LEFT JOIN area ar 
+        ON ase.id_area = ar.id
+      LEFT JOIN contrato con 
+        ON a.id = con.id_asesoramiento
+      LEFT JOIN tipo_trabajo t 
+        ON con.id_tipoTrabajo = t.id
     WHERE a.estado = 'activo';
   `);
 
-    // 2️⃣ Agregamos los clientes asignados a cada asesoramiento
+    // Agregamos los clientes asignados a cada asesoramiento
     const listclientes = await Promise.all(
       listar.map(async (asesoria) => {
-        const cliente =
-          (await this.clienteService.listAllByAsesoramiento(
-            asesoria.id_asesoramiento,
-          )) || [];
+        const cliente = await this.clienteService.listAllByAsesoramiento(
+          asesoria.id_asesoramiento,
+        );
         return {
           ...asesoria,
-          cliente,
+          cliente: cliente || [],
         };
       }),
     );
@@ -421,21 +410,21 @@ export class AsesoramientoService {
 
   async listarContratosAsignados() {
     const listar = await this.dataSource.query(`
-      SELECT 
-        a.id as id_asesoramiento,
-        t.nombre as trabajo_investigacion,
-        concat(c.nombre ,'',c.apellido) as delegado,
-        con.fecha_inicio as fecha_registro,
-        con.modalidad as modalidad,
-        tp.nombre as tipo_pago
-      FROM asesoramiento a
-        INNER JOIN contrato con ON  a.id = con.id_asesoramiento
-        INNER JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
-        INNER JOIN procesos_asesoria p ON a.id = p.id_asesoramiento
-        INNER JOIN cliente c ON p.id_cliente = c.id 
-        INNER JOIN tipo_pago tp ON con.id_tipoPago = tp.id
-      WHERE p.esDelegado = true 
-      `);
+    SELECT 
+      con.id as id_contrato,  -- <-- Cambiado de a.id a con.id
+      t.nombre as trabajo_investigacion,
+      CONCAT(c.nombre, ' ', c.apellido) as delegado,
+      con.fecha_inicio as fecha_registro,
+      con.modalidad as modalidad,
+      tp.nombre as tipo_pago
+    FROM asesoramiento a
+      INNER JOIN contrato con ON a.id = con.id_asesoramiento
+      INNER JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
+      INNER JOIN procesos_asesoria p ON a.id = p.id_asesoramiento
+      INNER JOIN cliente c ON p.id_cliente = c.id 
+      INNER JOIN tipo_pago tp ON con.id_tipoPago = tp.id
+    WHERE p.esDelegado = true
+  `);
     return listar;
   }
 

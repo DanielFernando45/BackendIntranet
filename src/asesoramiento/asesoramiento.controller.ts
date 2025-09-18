@@ -101,11 +101,6 @@ export class AsesoramientoController {
     return this.asesoramientoService.listar_segun_fecha(fecha);
   }
 
-  // @Patch("update/:id")
-  // editar_asesor(@Param("id",ParseIntPipe) id:number,@Body() campos:UpdateAsesoramientoDto){
-  //   this.asesoramientoService.changeAsesoramiento(id,campos)
-  // }
-
   @Patch('update/:id')
   updateAsesor(
     @Param('id', ParseIntPipe) id: number,
