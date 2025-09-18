@@ -294,12 +294,11 @@ export class AsesoramientoService {
   }
 
   async listarAsignados() {
-    // 1️⃣ Traemos todos los asesoramientos activos con info de delegado si existe
     const listar = await this.dataSource.query(`
     SELECT 
       a.id as id_asesoramiento,
       CONCAT(c.nombre,' ',c.apellido) as delegado,
-      con.fecha_inicio as fechaAsignacion,
+      con.fecha_fin as finContrato,
       t.nombre as tipotrabajo,
       ar.nombre as area,
       ase.nombre as asesor,
