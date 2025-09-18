@@ -137,34 +137,12 @@ export class AsesoramientoService {
       .where('c.id = :id', { id })
       .getOne();
 
-    // const solo_fechas = {
-    //   contrato: datosAsesoramiento
-    //     ? {
-    //         id: datosAsesoramiento.tipoContrato.id,
-    //         // nombre: datosAsesoramiento.tipoContrato.nombre,
-    //       }
-    //     : { message: 'Por asignar' },
-    //   fecha_inicio: datosAsesoramiento
-    //     ? "Sin fecha"
-    //     : 'Por asignar',
-    //   fecha_fin: datosAsesoramiento
-    //     ? "Sin fecha"
-    //     : 'Por asignar',
-    // };
+
     return datosAsesoramiento;
   }
 
   async changeAsesoramiento(id: number, cambios: UpdateAsesoramientoDto) {
-    // if (!Object.keys(cambios).length)
-    //   throw new BadRequestException('No se envio un body para actualizar');
-    // const partialEntity: any = { ...cambios };
-    // const updateAsesoramiento = await this.asesoramientoRepo.update(
-    //   id,
-    //   cambios,
-    // );
-    // if (updateAsesoramiento.affected === 0)
-    //   throw new NotFoundException('No hay registro a afectar');
-    // return `Se cambio el asesor correctamente por el de ID ${id}`;
+  
   }
 
   async changeState(id: number) {
@@ -416,7 +394,33 @@ export class AsesoramientoService {
   }
 
   async listarContratosSinAsignar() {
-    const listar = await this.dataSource.query(``);
+    const listar = await this.dataSource.query(`
+      SELECT 
+        a.id as id_asesoramiento,
+        concat(c.nombre ,'',c.apellido) as delegado,
+        ase.nombre as asesor
+      FROM asesoramiento a
+        INNER JOIN procesos_asesoria p ON a.id = p.id_asesoramiento
+        INNER JOIN asesor ase ON p.id_asesor = ase.id
+        INNER JOIN cliente c ON p.id_cliente = c.id 
+      WHERE p.esDelegado = true 
+      `)
+
+      const listContratosSinAsignar = await Promise.all(
+      listar.map(async (asesoria) => {
+        const cliente =
+          (await this.clienteService.listAllByAsesoramiento(
+            asesoria.id_asesoramiento,
+          )) || [];
+        return {
+          ...asesoria,
+          cliente,
+        };
+      }),
+    );
+      
+
+    return listContratosSinAsignar;
   }
 
   async listarContratosAsignados() {

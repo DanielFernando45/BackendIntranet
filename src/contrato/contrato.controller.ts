@@ -23,7 +23,7 @@ export class ContratoController {
     return this.contratoService.contratoByAsesoramiento(idContrato);
   }
 
-  @Post(':idAsesoramiento')
+  @Post('crear-contrato/:idAsesoramiento')
   async createContrato(
     @Param('idAsesoramiento') idAsesoramiento: string,
     @Body() dto: CreateContratoDto,
@@ -31,7 +31,7 @@ export class ContratoController {
     return this.contratoService.createContrato(Number(idAsesoramiento), dto);
   }
 
-  @Put(':idContrato')
+  @Put('editar-contrato/:idContrato')
   async updateContrato(
     @Param('idContrato', ParseUUIDPipe) idContrato: string,
     @Body() dto: UpdateContratoDto,
@@ -39,7 +39,7 @@ export class ContratoController {
     return this.contratoService.updateContrato(idContrato, dto);
   }
 
-  @Delete(':idContrato')
+  @Delete('eliminar-contrato/:idContrato')
   async deleteContrato(
     @Param('idContrato', ParseUUIDPipe) idContrato: string,
   ) {
