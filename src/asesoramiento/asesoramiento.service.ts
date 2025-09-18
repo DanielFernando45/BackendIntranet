@@ -305,7 +305,7 @@ export class AsesoramientoService {
     SELECT 
       a.id as id_asesoramiento,
       CONCAT(c.nombre,' ',c.apellido) as delegado,
-      con.fecha_inicio as fechaAsignacion,
+      con.fecha_fin as finContrato,
       t.nombre as tipotrabajo,
       ar.nombre as area,
       ase.nombre as asesor,
