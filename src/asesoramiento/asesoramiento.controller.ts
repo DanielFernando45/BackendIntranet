@@ -7,6 +7,10 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  Put,
+  HttpException,
+  HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { AsesoramientoService } from './asesoramiento.service';
 import {
@@ -47,6 +51,12 @@ export class AsesoramientoController {
     return this.asesoramientoService.listar_por_id(id);
   }
 
+  // GET /supervisores/:id/asignados → listar asignaciones filtradas por área del supervisor
+  @Get('supervisoresListadoArea/:id')
+  async listarAsignadosPorSupervisor(@Param('id') idSupervisor: string) {
+    return this.asesoramientoService.listarAsignadosPorSupervisor(idSupervisor);
+  }
+
   @Get('verInduccion/:id')
   getVerInduccionCliente(@Param('id', ParseIntPipe) id: number) {
     return this.asesoramientoService.getVerInduccionCliente(id);
@@ -76,6 +86,50 @@ export class AsesoramientoController {
       profesionAsesoria,
       area,
     );
+  }
+
+  @Put('Actualizar-Asignacion/:id')
+  async actualizarAsesoramiento(
+    @Param('id') asesoramientoId: string,
+    @Body()
+    body: {
+      asesorId: number;
+      clientesIds: number[];
+      profesionAsesoria: string;
+      area: string;
+    },
+  ) {
+    try {
+      const resultado = await this.asesoramientoService.actualizarAsesoramiento(
+        Number(asesoramientoId),
+        body.asesorId,
+        body.clientesIds,
+        body.profesionAsesoria,
+        body.area,
+      );
+
+      return {
+        status: 'success',
+        data: resultado,
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          status: 'error',
+          message: error.message || 'Error al actualizar el asesoramiento',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Get('obtenerAsesoramiento/:id')
+  async obtenerAsesoramiento(@Param('id', ParseIntPipe) id: number) {
+    const data = await this.asesoramientoService.obtenerAsesoramientoPorId(id);
+    if (!data) {
+      throw new NotFoundException('Asesoramiento no encontrado');
+    }
+    return data;
   }
   //falta terminar esta API , primero deberia crearse la asignacion supervisor , asesor-cliente
   @Get('listarContratosSinAsignar')

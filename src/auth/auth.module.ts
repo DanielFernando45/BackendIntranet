@@ -13,10 +13,12 @@ import { MailModule } from 'src/mail/mail.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PassportModule } from '@nestjs/passport';
+import { Supervisor } from 'src/supervisor/entities/supervisor.entity';
+import { Area } from 'src/area/entities/area.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuario, Admin, Asesor, Cliente]),
+    TypeOrmModule.forFeature([Usuario, Admin, Asesor, Cliente, Supervisor, Area]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'superSecret',
       signOptions: { expiresIn: '1y' },

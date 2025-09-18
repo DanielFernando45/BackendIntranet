@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Usuario } from '../usuario/usuario.entity';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Admin } from 'src/admin/admin.entity';
 import * as bcrypt from 'bcrypt';
@@ -14,6 +14,8 @@ import { Asesor } from 'src/asesor/asesor.entity';
 import { Cliente } from 'src/cliente/cliente.entity';
 import { UsuarioService } from 'src/usuario/usuario.service';
 import { MailService } from 'src/mail/mail.service';
+import { Supervisor } from 'src/supervisor/entities/supervisor.entity';
+import { Area } from 'src/area/entities/area.entity';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +27,10 @@ export class AuthService {
     private usuarioRepo: Repository<Usuario>,
     @InjectRepository(Admin)
     private adminRepo: Repository<Admin>,
+    @InjectRepository(Supervisor)
+    private supervisorRepo: Repository<Supervisor>,
+    @InjectRepository(Area)
+    private areaRepo: Repository<Area>,
     @InjectRepository(Asesor)
     private asesorRepo: Repository<Asesor>,
     @InjectRepository(Cliente)
@@ -46,6 +52,8 @@ export class AuthService {
     }
     return user;
   }
+
+  
   async login(user: Usuario) {
     if (!user.estado) {
       throw new NotFoundException(
@@ -53,96 +61,49 @@ export class AuthService {
       );
     }
 
+    // 1. JOIN explícito por claves foráneas
+    const qb = this.usuarioRepo
+      .createQueryBuilder('u')
+      .leftJoin(Supervisor, 's', 's.usuarioId = u.id') // usuarios → supervisor
+      .leftJoin(Area, 'a', 'a.id_supervisor = s.id') // supervisor → area
+      .addSelect([
+        's.id AS s_id',
+        's.nombre AS s_nombre',
+        'a.nombre AS a_nombre',
+      ])
+      .where('u.id = :id', { id: user.id });
+
+    const raw = await qb.getRawOne();
+
+    // 2. Extraer datos
+    const idUsuario = user.id;
+    const idSupervisor = raw?.s_id ?? null;
+    const nombre = raw?.s_nombre ?? user.username;
+    const area = raw?.a_nombre ?? 'Área no asignada';
+
+    // 3. Crear el payload con id_supervisor incluido
     const payload = {
-      sub: user.id,
+      sub: idUsuario,
       username: user.username,
       role: user.rol.nombre,
+      id_supervisor: idSupervisor, // ← YA definido correctamente aquí
     };
 
-    const datos = {
-      id: user.id,
-      nombre: user.username,
-      area: 'Área no asignada',
-    };
-
-    const relationName = user.rol.nombre.toLowerCase();
-
-    const usuarioRelation = this.usuarioRepo.metadata.relations.find(
-      (r) => r.propertyName === relationName,
-    );
-
-    if (usuarioRelation) {
-      try {
-        const roleAlias = relationName;
-        let qb = this.usuarioRepo
-          .createQueryBuilder('usuario')
-          .leftJoinAndSelect(`usuario.${relationName}`, roleAlias);
-
-        const roleMetadata = usuarioRelation.inverseEntityMetadata;
-
-        const areaRelation = roleMetadata.relations.find(
-          (r) => r.propertyName === 'area' || r.propertyName === 'areas',
-        );
-
-        if (areaRelation) {
-          qb = qb.leftJoinAndSelect(
-            `${roleAlias}.${areaRelation.propertyName}`,
-            'areas',
-          );
-        }
-
-        const usuarioConRol = await qb
-          .where('usuario.id = :id', { id: user.id })
-          .getOne();
-
-        console.log(
-          'DEBUG usuario con rol y áreas:',
-          JSON.stringify(usuarioConRol, null, 2),
-        );
-
-        const roleEntity = usuarioConRol
-          ? (usuarioConRol as any)[relationName]
-          : null;
-
-        if (roleEntity) {
-          datos.id = roleEntity.id ?? datos.id;
-          datos.nombre = roleEntity.nombre ?? datos.nombre;
-
-          if (areaRelation) {
-            const areas = roleEntity[areaRelation.propertyName];
-            console.log('DEBUG áreas encontradas:', areas);
-
-            if (Array.isArray(areas)) {
-              // Caso Supervisor → varias áreas
-              datos.area =
-                areas.length > 0
-                  ? areas.map((a: any) => a.nombre).join(', ')
-                  : 'Sin áreas';
-            } else if (areas) {
-              // Caso Asesor → un solo área
-              datos.area = areas.nombre ?? 'Área no asignada';
-            } else {
-              datos.area = 'Área no asignada';
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error cargando relación dinámica:', err);
-      }
-    }
-
+    // 4. Devolver respuesta
     return {
       access_token: this.jwtService.sign(payload),
-      id_usuario: user.id,
+      id_usuario: idUsuario,
       datos_usuario: {
-        id: datos.id,
-        nombre: datos.nombre,
+        id_usuario: idUsuario,
+        id_supervisor: idSupervisor,
+        username: user.username,
+        nombre,
         role: user.rol,
-        area: datos.area,
+        area,
       },
     };
   }
-  
+
   async sendMailPassword(email: string) {
     const url_codified = this.jwtService.sign(
       { email },
