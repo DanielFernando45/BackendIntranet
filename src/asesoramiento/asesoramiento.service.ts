@@ -135,7 +135,6 @@ export class AsesoramientoService {
       .where('c.id = :id', { id })
       .getOne();
 
-
     return datosAsesoramiento;
   }
 
@@ -304,7 +303,8 @@ export class AsesoramientoService {
     const listar = await this.dataSource.query(`
     SELECT 
       a.id as id_asesoramiento,
-      CONCAT(c.nombre,' ',c.apellido) as delegado,
+      CONCAT(c.nombre, ' ', c.apellido) as delegado,
+      c.id as id_delegado,  -- Agregar el ID del delegado
       con.fecha_fin as finContrato,
       t.nombre as tipotrabajo,
       ar.nombre as area,
@@ -635,9 +635,9 @@ export class AsesoramientoService {
         INNER JOIN asesor ase ON p.id_asesor = ase.id
         INNER JOIN cliente c ON p.id_cliente = c.id 
       WHERE p.esDelegado = true 
-      `)
+      `);
 
-      const listContratosSinAsignar = await Promise.all(
+    const listContratosSinAsignar = await Promise.all(
       listar.map(async (asesoria) => {
         const cliente =
           (await this.clienteService.listAllByAsesoramiento(
@@ -649,7 +649,6 @@ export class AsesoramientoService {
         };
       }),
     );
-      
 
     return listContratosSinAsignar;
   }
@@ -744,113 +743,6 @@ export class AsesoramientoService {
     }
     //console.log(arregloAsesorias)
     return arregloAsesorias;
-  }
-
-  async update(
-    id: number,
-    updateAsesoramientoDto: UpdateAsesoramientoDto,
-    clientes: clientesExtraDTO,
-  ) {
-    // console.log("ID",id)
-    // console.log("Update asesoramientoDto",updateAsesoramientoDto)
-    // console.log("Clientes",clientes)
-    // let id_asesor;
-    // console.log(clientes)
-    // if (updateAsesoramientoDto.id_asesor !== undefined) {
-    //   id_asesor = updateAsesoramientoDto.id_asesor;
-    //   delete updateAsesoramientoDto.id_asesor;
-    // }
-    // const queryRunner = this.dataSource.createQueryRunner();
-    // await queryRunner.connect();
-    // await queryRunner.startTransaction();
-    // try {
-    //   if (
-    //     updateAsesoramientoDto.fecha_inicio &&
-    //     updateAsesoramientoDto.fecha_fin
-    //   ) {
-    //     if (
-    //       updateAsesoramientoDto.fecha_fin < updateAsesoramientoDto.fecha_inicio
-    //     ) {
-    //       throw new BadRequestException(
-    //         'La fecha de fin no puede ser anterior a la fecha de inicio',
-    //       );
-    //     }
-    //   }
-    //   const updated = { ...updateAsesoramientoDto };
-    //   if (updateAsesoramientoDto.id_contrato) {
-    //     delete updated.id_contrato;
-    //     updated['tipoContrato'] = { id: updateAsesoramientoDto.id_contrato };
-    //   }
-    //   if (updateAsesoramientoDto.id_tipo_trabajo) {
-    //     delete updated.id_tipo_trabajo;
-    //     updated['tipoTrabajo'] = { id: updateAsesoramientoDto.id_tipo_trabajo };
-    //   }
-    //   await queryRunner.manager.update(Asesoramiento, { id }, { ...updated });
-    //   const clienteIds: number[] = Object.values(clientes).filter(
-    //     (id) => typeof id === 'number' && id > 0,
-    //   );
-    //   // console.log("ClientesId ",clienteIds)
-    //   if (clienteIds.length === 0) {
-    //     throw new BadRequestException(
-    //       'Debe proporcionar al menos un cliente válido',
-    //     );
-    //   }
-    //   const procesosActuales = await queryRunner.manager.find(
-    //     ProcesosAsesoria,
-    //     {
-    //       where: { asesoramiento: { id } },
-    //       order: { id: 'ASC' }, // Importante para que se mantenga el orden y se puedan comparar
-    //     },
-    //   );
-    //   // console.log("Proceso actuales: ",procesosActuales)
-    //   const cantidadActual = procesosActuales.length;
-    //   const cantidadNueva = clienteIds.length;
-    //   const cantidadActualizar = Math.min(cantidadActual, cantidadNueva);
-    //   let esDelegado = false;
-    //   for (let i = 0; i < cantidadActualizar; i++) {
-    //     esDelegado = i == 0 ? true : false;
-    //     console.log("clientes: ",clientes)
-    //     await this.procesosAsesoriaService.actualizar_registros_por_Asesoramiento(
-    //       id,
-    //       clienteIds[i],
-    //       id_asesor,
-    //       esDelegado,
-    //       queryRunner.manager,
-    //       procesosActuales[i].id,
-    //     );
-    //   }
-    //   // 5. Agregar nuevos si hay más clientes
-    //   if (cantidadNueva > cantidadActualizar) {
-    //     for (let i = cantidadActualizar; i < cantidadNueva; i++) {
-    //       esDelegado = i == 0 ? true : false;
-    //       await this.procesosAsesoriaService.crear_registro_por_Asesoramiento(
-    //         id,
-    //         clienteIds[i],
-    //         id_asesor,
-    //         esDelegado,
-    //         queryRunner.manager,
-    //       );
-    //     }
-    //   }
-    //   // 6. Eliminar registros sobrantes si hay menos clientes
-    //   if (cantidadNueva < cantidadActual) {
-    //     for (let i = cantidadNueva; i < cantidadActual; i++) {
-    //       await queryRunner.manager.delete(
-    //         ProcesosAsesoria,
-    //         procesosActuales[i].id,
-    //       );
-    //     }
-    //   }
-    //   await queryRunner.commitTransaction();
-    //   return 'Actualizado satisfactoriamente';
-    // } catch (err) {
-    //   queryRunner.rollbackTransaction();
-    //   throw new InternalServerErrorException(
-    //     `No se puede actualizar completemente,cancelando cambios se presta este error ${err}`,
-    //   );
-    // } finally {
-    //   await queryRunner.release();
-    // }
   }
 
   async remove(id: number) {
@@ -1005,28 +897,46 @@ export class AsesoramientoService {
     );
     return listAsesoramientoAndDelegado;
   }
-
   async listDelegadoToServicios() {
-    const datosAsesoramiento = await this.asesoramientoRepo
-      .createQueryBuilder('ase')
-      .leftJoin('ase.informacion_pago', 'infoPago')
-      .innerJoinAndSelect('ase.tipoTrabajo', 'tra')
-      .select(['DISTINCT ase.id AS id', 'tra.nombre AS tipo_trabajo'])
-      .where('infoPago.id IS NOT NULL')
-      .getRawMany();
+    try {
+      // Consulta para obtener los asesoramientos con información de pago
+      const datosAsesoramiento = await this.asesoramientoRepo
+        .createQueryBuilder('ase')
+        .leftJoin('ase.informacion_pago', 'infoPago') // LEFT JOIN para obtener los asesoramientos con pagos
+        .where('infoPago.id IS NOT NULL') // Filtramos por aquellos con pago
+        .select(['ase.id']) // Seleccionamos solo el ID de asesoramiento
+        .getRawMany(); // Obtenemos el resultado crudo de la consulta
 
-    const listAsesoramientoAndDelegado = await Promise.all(
-      datosAsesoramiento.map(async (asesoramiento) => {
-        let delegado = await this.clienteService.getDelegado(asesoramiento.id);
-        return {
-          id_asesoramiento: asesoramiento.id,
-          delegado: delegado.nombre_delegado,
-          tipo_trabajo: asesoramiento.tipo_trabajo,
-        };
-      }),
-    );
+      // Obtenemos el delegado asociado a cada asesoramiento
+      const listAsesoramientoAndDelegado = await Promise.all(
+        datosAsesoramiento.map(async (asesoramiento) => {
+          let delegado;
+          try {
+            // Intentamos obtener el delegado asociado a este asesoramiento
+            delegado = await this.clienteService.getDelegado(asesoramiento.id);
+          } catch (err) {
+            // En caso de error al obtener el delegado, asignamos un valor por defecto
+            console.error('Error al obtener delegado:', err);
+            delegado = { nombre_delegado: 'Desconocido' }; // Valor por defecto si no se puede obtener el delegado
+          }
 
-    return listAsesoramientoAndDelegado;
+          // Devolvemos el objeto con la información relevante
+          return {
+            id_asesoramiento: asesoramiento.id,
+            delegado: delegado.nombre_delegado,
+          };
+        }),
+      );
+
+      // Devolvemos la lista de asesoramientos con sus respectivos delegados
+      return listAsesoramientoAndDelegado;
+    } catch (err) {
+      // En caso de error general, lo logueamos y lanzamos un error del servidor
+      console.error('Error en la función listDelegadoToServicios:', err);
+      throw new InternalServerErrorException(
+        'Hubo un error al obtener los servicios',
+      );
+    }
   }
 
   async getAsesoramientoByAsesor(id_asesor: number) {

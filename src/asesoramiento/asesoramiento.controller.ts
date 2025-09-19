@@ -155,18 +155,6 @@ export class AsesoramientoController {
     return this.asesoramientoService.listar_segun_fecha(fecha);
   }
 
-  @Patch('update/:id')
-  updateAsesor(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: AsesoramientoUpdateWrpDTO,
-  ) {
-    return this.asesoramientoService.update(
-      id,
-      body.createAsesoramiento,
-      body.clientes,
-    );
-  }
-
   @Patch('estado/:id')
   desactivateAsesoria(@Param('id', ParseIntPipe) id: number) {
     return this.asesoramientoService.changeState(id);

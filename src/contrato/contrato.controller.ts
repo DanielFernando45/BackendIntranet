@@ -16,6 +16,17 @@ import { UpdateContratoDto } from './dto/update-contrato.dto';
 export class ContratoController {
   constructor(private readonly contratoService: ContratoService) {}
 
+
+  @Get('contratos-asignados')
+  findAssignedContratos() {
+    return this.contratoService.listarContratosAsignados();
+  }
+
+  @Get('contratosNoAsignados')
+  findUnassignedContratos() {
+    return this.contratoService.listarContratosNoAsignados();
+  }
+
   @Get('fechasContratoById/:idContrato')
   obtenerContratoByAsesoramiento(
     @Param('idContrato', ParseUUIDPipe) idContrato: string,
