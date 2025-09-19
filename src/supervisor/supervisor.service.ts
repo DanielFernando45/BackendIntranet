@@ -322,7 +322,6 @@ export class SupervisorService {
     };
   }
 
-  
   async getAreasBySupervisor(id: string) {
     const areas = await this.areaRepo.find({
       where: { supervisor: { id } },

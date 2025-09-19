@@ -7,6 +7,8 @@ import { Asesoramiento } from '../asesoramiento/entities/asesoramiento.entity';
 import { TipoTrabajo } from '../common/entidades/tipoTrabajo.entity';
 import { TipoPago } from '../common/entidades/tipoPago.entity';
 import { Categoria } from '../categoria/entities/categoria.entity';
+import { Cliente } from 'src/cliente/cliente.entity';
+import { ClienteModule } from 'src/cliente/cliente.module';
 
 @Module({
   imports: [
@@ -16,7 +18,9 @@ import { Categoria } from '../categoria/entities/categoria.entity';
       TipoTrabajo,
       TipoPago,
       Categoria,
+      Cliente
     ]),
+    ClienteModule
   ],
   controllers: [ContratoController],
   providers: [ContratoService],
