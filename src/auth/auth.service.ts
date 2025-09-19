@@ -66,10 +66,16 @@ export class AuthService {
       .createQueryBuilder('u')
       .leftJoin(Supervisor, 's', 's.usuarioId = u.id') // usuarios → supervisor
       .leftJoin(Area, 'a', 'a.id_supervisor = s.id') // supervisor → area
+      .leftJoin(Cliente, 'c', 'c.usuarioId = u.id') // usuarios → cliente
+      .leftJoin(Asesor, 'as', 'as.usuarioId = u.id') // usuarios → asesor
       .addSelect([
         's.id AS s_id',
-        's.nombre AS s_nombre',
+        's.nombre AS su_nombre',
+        'c.id AS id_Cliente',
+        'c.nombre AS cli_nombre',
         'a.nombre AS a_nombre',
+        'as.id AS id_Asesor',
+        'as.nombre AS ase_nombre',
       ])
       .where('u.id = :id', { id: user.id });
 
@@ -78,7 +84,9 @@ export class AuthService {
     // 2. Extraer datos
     const idUsuario = user.id;
     const idSupervisor = raw?.s_id ?? null;
-    const nombre = raw?.s_nombre ?? user.username;
+    const idCliente = raw?.id_Cliente ?? null; 
+    const idAsesor = raw?.id_Asesor ?? null;
+    const nombre =  raw.ase_nombre ?? raw.su_nombre ?? raw.cli_nombre ?? user.username;
     const area = raw?.a_nombre ?? 'Área no asignada';
 
     // 3. Crear el payload con id_supervisor incluido
@@ -96,6 +104,8 @@ export class AuthService {
       datos_usuario: {
         id_usuario: idUsuario,
         id_supervisor: idSupervisor,
+        id_cliente: idCliente,
+        id_asesor: idAsesor,
         username: user.username,
         nombre,
         role: user.rol,
