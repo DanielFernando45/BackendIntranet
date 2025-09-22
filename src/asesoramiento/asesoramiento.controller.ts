@@ -29,6 +29,11 @@ export class AsesoramientoController {
     return this.asesoramientoService.listar();
   }
 
+  @Get('/listarAsignadosJefeOpe')
+  listarAsignadosJefeOpe() {
+    return this.asesoramientoService.listarAsignadosJefeOpe();
+  }
+
   @Get('cuotasSinPagos')
   listarCuotasSinpagos() {
     const tipo_contrato = 'cuotas';

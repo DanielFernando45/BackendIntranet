@@ -342,6 +342,48 @@ export class AsesoramientoService {
     return listclientes;
   }
 
+  async listarAsignadosJefeOpe() {
+    const listar = await this.dataSource.query(`
+    SELECT 
+      a.id as id_asesoramiento,
+      CONCAT(c.nombre, ' ', c.apellido) as delegado,
+      c.id as id_delegado,  -- Agregar el ID del delegado
+      con.fecha_fin as finContrato,
+      t.nombre as tipotrabajo,
+      ar.nombre as area,
+      ase.nombre as asesor,
+      a.estado as estado
+    FROM asesoramiento a
+      LEFT JOIN procesos_asesoria pr 
+        ON a.id = pr.id_asesoramiento AND pr.esDelegado = 1
+      LEFT JOIN cliente c 
+        ON pr.id_cliente = c.id
+      LEFT JOIN asesor ase 
+        ON pr.id_asesor = ase.id
+      LEFT JOIN area ar 
+        ON ase.id_area = ar.id
+      LEFT JOIN contrato con 
+        ON a.id = con.id_asesoramiento
+      LEFT JOIN tipo_trabajo t 
+        ON con.id_tipoTrabajo = t.id
+  `);
+
+    // Agregamos los clientes asignados a cada asesoramiento
+    const listclientes = await Promise.all(
+      listar.map(async (asesoria) => {
+        const cliente = await this.clienteService.listAllByAsesoramiento(
+          asesoria.id_asesoramiento,
+        );
+        return {
+          ...asesoria,
+          cliente: cliente || [],
+        };
+      }),
+    );
+
+    return listclientes;
+  }
+
   async crearYAsignarAsesoramiento(
     asesorId: number,
     clientesIds: number[],
