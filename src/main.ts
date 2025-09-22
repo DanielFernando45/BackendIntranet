@@ -1,9 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 dotenv.config();
 import * as fs from 'fs';
+import { ValidationError } from 'class-validator';
 
 async function bootstrap() {
   // const httpsOptions = {
@@ -28,6 +29,14 @@ async function bootstrap() {
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
+      exceptionFactory: (errors: ValidationError[]) => {
+        // 👀 Esto imprimirá en consola todos los detalles de validación
+        console.error(
+          '❌ Errores de validación:',
+          JSON.stringify(errors, null, 2),
+        );
+        return new BadRequestException(errors);
+      },
     }),
   );
 

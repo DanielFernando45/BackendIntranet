@@ -33,7 +33,7 @@ const HOST_API = 'http://localhost:3001';
 
 @Controller('asuntos')
 export class AsuntosController {
-  constructor(private readonly asuntosService: AsuntosService) { }
+  constructor(private readonly asuntosService: AsuntosService) {}
 
   @Post('addWithDocument/:id_asesoramiento')
   @UseGuards(JwtAuthGuard, IsDelegadoGuard)
@@ -91,9 +91,6 @@ export class AsuntosController {
     if (!files || files.length === 0)
       throw new BadRequestException('No se ha enviado archivos');
     try {
-      // const listaNombresyUrl=files.map((item)=>{
-      //   return {nombreDocumento:item.originalname,secureUrl:`${HOST_API}/files/product/${item.filename}`}
-      // })
       const newTitulo = cambioAsunto.titulo;
       if (!newTitulo) throw new BadRequestException('Falta agregar el titulo');
       return await this.asuntosService.finishAsunt(id, newTitulo, files);
@@ -115,17 +112,15 @@ export class AsuntosController {
     return await this.asuntosService.getAll(id);
   }
 
-  @Put(':id')
+  @Patch(':id')
   @UseInterceptors(
     FilesInterceptor('files', 10, {
       fileFilter,
-      limits: {
-        fileSize: 1024 * 1025 * 30,
-      },
+      limits: { fileSize: 1024 * 1025 * 30 },
     }),
   )
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
+  async updateAsunto(
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateAsuntoDto: UpdateAsuntoDto,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
@@ -153,7 +148,7 @@ export class AsuntosController {
   asuntoPorAsesor(@Param('id', ParseUUIDPipe) id: string) {
     return this.asuntosService.getAsuntosTerminadosAsesor(id);
   }
-  
+
   @Put('editarFechaAsuntoPendiente/:id')
   editarFechaAsunto(@Param('id', ParseUUIDPipe) id: string, @Body() body: any) {
     return this.asuntosService.editarFechaAsuntoPendiente(id, body);

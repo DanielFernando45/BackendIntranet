@@ -298,14 +298,14 @@ export class AsesoramientoService {
 
     return induccion;
   }
-
   async listarAsignados() {
     const listar = await this.dataSource.query(`
     SELECT 
       a.id as id_asesoramiento,
       CONCAT(c.nombre, ' ', c.apellido) as delegado,
-      c.id as id_delegado,  -- Agregar el ID del delegado
-      con.fecha_fin as finContrato,
+      c.id as id_delegado,  -- ID del delegado
+      con.fecha_inicio as inicioContrato, -- Agregado
+      con.fecha_fin as finContrato,       -- Ya estaba
       t.nombre as tipotrabajo,
       ar.nombre as area,
       ase.nombre as asesor,
@@ -326,7 +326,7 @@ export class AsesoramientoService {
     WHERE a.estado = 'activo';
   `);
 
-    // Agregamos los clientes asignados a cada asesoramiento
+    // Agregar los clientes asignados a cada asesoramiento
     const listclientes = await Promise.all(
       listar.map(async (asesoria) => {
         const cliente = await this.clienteService.listAllByAsesoramiento(
@@ -694,7 +694,6 @@ export class AsesoramientoService {
 
     return listContratosSinAsignar;
   }
-
   async listarContratosAsignados() {
     const listar = await this.dataSource.query(`
     SELECT 
@@ -702,7 +701,8 @@ export class AsesoramientoService {
       con.id AS id_contrato,                 -- Contrato
       t.nombre AS trabajo_investigacion,     -- Tipo de trabajo
       CONCAT(c.nombre, ' ', c.apellido) AS delegado,
-      con.fecha_inicio AS fecha_registro,
+      con.fecha_inicio AS fecha_inicio,      -- Fecha de inicio del contrato
+      con.fecha_fin AS fecha_fin,            -- Fecha de fin del contrato
       con.modalidad AS modalidad,
       tp.nombre AS tipo_pago
     FROM asesoramiento a

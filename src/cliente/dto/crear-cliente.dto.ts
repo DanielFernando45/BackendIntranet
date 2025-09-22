@@ -32,7 +32,7 @@ export class CreateClienteDto {
 
   @IsString()
   @IsOptional()
-  readonly url_imagen?: string;
+  readonly url_imagen?: string | null;
 
   @IsString()
   @IsNotEmpty()

@@ -1,22 +1,44 @@
+import { Transform, Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import { Subido } from 'src/documentos/entities/documento.entity';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateAsuntoDto } from './create-asunto.dto';
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsString } from 'class-validator';
-import { Subido } from 'src/documentos/entities/documento.entity';
-import { Type } from 'class-transformer';
 
 export class UpdateAsuntoDto extends PartialType(CreateAsuntoDto) {
+  @IsString()
+  @IsNotEmpty()
+  titulo: string;
+  
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value).map((v: any) => Number(v));
+      } catch {
+        return [];
+      }
+    }
+    return value;
+  })
+  idsElminar?: number[];
 
-    @IsString()
-    @IsNotEmpty()
-    titulo: string;
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  idAsesoramiento?: number;
 
-    @IsString()
-    idsElminar: string;
-
-    @IsNumber()
-    @Type(() => Number)
-    idAsesoramiento: number;
-
-    @IsEnum(Subido)
-    subido_por: Subido;
+  @IsEnum(Subido)
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toLowerCase() : value,
+  )
+  subido_por?: Subido;
 }
