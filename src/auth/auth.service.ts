@@ -53,7 +53,6 @@ export class AuthService {
     return user;
   }
 
-  
   async login(user: Usuario) {
     if (!user.estado) {
       throw new NotFoundException(
@@ -61,13 +60,13 @@ export class AuthService {
       );
     }
 
-    // 1. JOIN explícito por claves foráneas
     const qb = this.usuarioRepo
       .createQueryBuilder('u')
-      .leftJoin(Supervisor, 's', 's.usuarioId = u.id') // usuarios → supervisor
-      .leftJoin(Area, 'a', 'a.id_supervisor = s.id') // supervisor → area
-      .leftJoin(Cliente, 'c', 'c.usuarioId = u.id') // usuarios → cliente
-      .leftJoin(Asesor, 'as', 'as.usuarioId = u.id') // usuarios → asesor
+      .leftJoin(Supervisor, 's', 's.usuarioId = u.id')
+      .leftJoin(Area, 'a', 'a.id_supervisor = s.id')
+      .leftJoin(Cliente, 'c', 'c.usuarioId = u.id')
+      .leftJoin(Asesor, 'as', 'as.usuarioId = u.id')
+      .leftJoin(Admin, 'ad', 'ad.usuarioId = u.id')
       .addSelect([
         's.id AS s_id',
         's.nombre AS su_nombre',
@@ -76,41 +75,55 @@ export class AuthService {
         'a.nombre AS a_nombre',
         'as.id AS id_Asesor',
         'as.nombre AS ase_nombre',
+        'ad.id AS id_Admin',
+        'ad.nombre AS admin_nombre',
       ])
       .where('u.id = :id', { id: user.id });
 
     const raw = await qb.getRawOne();
 
-    // 2. Extraer datos
     const idUsuario = user.id;
     const idSupervisor = raw?.s_id ?? null;
-    const idCliente = raw?.id_Cliente ?? null; 
+    const idCliente = raw?.id_Cliente ?? null;
     const idAsesor = raw?.id_Asesor ?? null;
-    const nombre =  raw.ase_nombre ?? raw.su_nombre ?? raw.cli_nombre ?? user.username;
-    const area = raw?.a_nombre ?? 'Área no asignada';
+    const idAdmin = raw?.id_Admin ?? null;
 
-    // 3. Crear el payload con id_supervisor incluido
-    const payload = {
+    const nombre =
+      raw.ase_nombre ??
+      raw.su_nombre ??
+      raw.cli_nombre ??
+      raw.admin_nombre ??
+      user.username;
+
+    const area = raw?.a_nombre ?? null;
+
+    const payload: any = {
       sub: idUsuario,
       username: user.username,
       role: user.rol.nombre,
-      id_supervisor: idSupervisor, // ← YA definido correctamente aquí
     };
 
-    // 4. Devolver respuesta
+    if (idSupervisor) payload.id_supervisor = idSupervisor;
+
+    const datos_usuario: any = {
+      username: user.username,
+      nombre,
+      role: user.rol,
+    };
+
+    if (idSupervisor) datos_usuario.id_supervisor = idSupervisor;
+    if (idCliente) datos_usuario.id_cliente = idCliente;
+    if (idAsesor) datos_usuario.id_asesor = idAsesor;
+    if (idAdmin) datos_usuario.id_admin = idAdmin;
+
+    if (user.rol.nombre === 'supervisor' && area) {
+      datos_usuario.area = area;
+    }
+
     return {
       access_token: this.jwtService.sign(payload),
-      id_usuario: idUsuario,
-      datos_usuario: {
-        id_usuario: idUsuario,
-        id_supervisor: idSupervisor,
-        id_cliente: idCliente,
-        id_asesor: idAsesor,
-        username: user.username,
-        nombre,
-        role: user.rol,
-        area,
-      },
+      id_usuario: idUsuario, // ← Solo aquí
+      datos_usuario,
     };
   }
 
