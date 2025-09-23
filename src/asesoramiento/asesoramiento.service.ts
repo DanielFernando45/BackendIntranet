@@ -1000,14 +1000,15 @@ export class AsesoramientoService {
     const listAsesorias = await this.asesoramientoRepo
       .createQueryBuilder('asesoramiento')
       .innerJoin('asesoramiento.procesosasesoria', 'pro')
-      .innerJoinAndSelect('asesoramiento.tipoTrabajo', 'tipoTrabajo')
-      .innerJoinAndSelect('pro.asesor', 'asesor')
+      .innerJoin('pro.asesor', 'asesor')
+      .innerJoin('contrato', 'c', 'c.id_asesoramiento = asesoramiento.id')
       .select([
         'DISTINCT asesoramiento.id AS id',
         'asesoramiento.profesion_asesoria AS profesion_asesoria',
-        'tipoTrabajo.nombre AS tipotrabajo',
-        'asesoramiento.fecha_inicio AS fecha_inicio',
-        'asesoramiento.fecha_fin AS fecha_fin',
+        'c.fecha_inicio AS fecha_inicio',
+        'c.fecha_fin AS fecha_fin',
+        'c.modalidad AS modalidad',
+        'c.servicio AS servicio',
       ])
       .where('asesor.id= :id', { id })
       .andWhere('asesoramiento.estado= :estado', { estado })
@@ -1023,10 +1024,10 @@ export class AsesoramientoService {
           id: asesoria.id,
           delegado: delegado.nombre_delegado,
           profesion_asesoria: asesoria.profesion_asesoria,
-          tipo_trabajo: asesoria.tipotrabajo,
           fecha_inicio: asesoria.fecha_inicio,
           fecha_fin: asesoria.fecha_fin,
-          especialidad: asesoria.especialidad,
+          modalidad: asesoria.modalidad,
+          servicio: asesoria.servicio,
         };
       }),
     );
