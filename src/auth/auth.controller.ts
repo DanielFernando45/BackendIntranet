@@ -50,16 +50,16 @@ export class AuthController {
     return new BadRequestException('La contraseñas no son iguales');
   }
 
-  @Patch('change-password/:id')
-  async changePassword(
-    @Param('id') id: number,
-    @Body() dto: ChangePasswordDto,
-  ) {
-    return this.authService.changePassword(
-      id,
-      dto.oldPassword,
-      dto.newPassword,
-      dto.repeatPassword,
-    );
-  }
+    @Patch('change-password/:id')
+    async changePassword(
+      @Param('id') id: number,
+      @Body() dto: ChangePasswordDto,
+    ) {
+      return this.authService.changePassword(
+        id,
+        dto.oldPassword,
+        dto.newPassword,
+        dto.repeatPassword,
+      );
+    }
 }

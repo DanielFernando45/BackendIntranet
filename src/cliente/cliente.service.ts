@@ -25,6 +25,7 @@ import { updatedByClient } from './dto/updated-by-client.dto';
 import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
 import { ProcesosAsesoriaService } from 'src/procesos_asesoria/procesos_asesoria.service';
 import { Rol } from '../rol/entities/rol.entity'; // Importa la entidad Rol
+import { Contrato } from 'src/contrato/entities/contrato.entity';
 
 @Injectable()
 export class ClienteService {
@@ -34,6 +35,9 @@ export class ClienteService {
     @Inject(forwardRef(() => AsesoramientoService))
     private readonly asesoramientoService: AsesoramientoService,
 
+    @InjectRepository(ProcesosAsesoria)
+    private procesosAsesoriaRepo: Repository<ProcesosAsesoria>,
+
     @InjectRepository(Cliente)
     private clienteRepo: Repository<Cliente>,
 
@@ -42,6 +46,8 @@ export class ClienteService {
 
     @InjectRepository(GradoAcademico)
     private gradoAcademicoRepo: Repository<GradoAcademico>,
+    @InjectRepository(Contrato)
+    private contratoRepo: Repository<Contrato>,
 
     @InjectDataSource()
     private readonly dataSource: DataSource,
@@ -174,6 +180,32 @@ export class ClienteService {
       );
     }
   }
+  async obtenerDatosAsesor(idCliente: number) {
+    const result = await this.procesosAsesoriaRepo
+      .createQueryBuilder('pa')
+      .innerJoin('asesor', 'a', 'a.id = pa.id_asesor') // 👈 ahora apunta a tabla asesor
+      .leftJoin('grado_academico', 'g', 'g.id = a.id_grado_academico')
+      .select([
+        'a.id AS id_asesor',
+        'a.dni AS dni',
+        'a.nombre AS nombre',
+        'a.apellido AS apellido',
+        'a.telefono AS telefono',
+        'a.email AS email',
+        'a.url_imagen AS url_imagen',
+        'a.especialidad AS especialidad',
+        'a.universidad AS universidad',
+        'g.nombre AS gradoAcademico',
+      ])
+      .where('pa.id_cliente = :idCliente', { idCliente })
+      .getRawOne();
+
+    if (!result) {
+      return { mensaje: 'Este cliente aún no tiene asesor asignado' };
+    }
+
+    return result;
+  }
 
   async clientesSinAsignar(): Promise<ClientesSinAsignar[]> {
     const clientesSinProcesos = await this.dataSource
@@ -285,7 +317,7 @@ export class ClienteService {
       );
     }
   }
-  
+
   async deletedCliente(id: number) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -354,11 +386,16 @@ export class ClienteService {
 
     return listAsesorias;
   }
-  async getContratos(id: number) {
-    const contrato =
-      await this.asesoramientoService.contratoDelAsesoramiento(id);
 
-    return contrato;
+  async getContratos(idAsesoria: number) {
+    return this.contratoRepo
+      .createQueryBuilder('contrato')
+      .leftJoinAndSelect('contrato.asesoramiento', 'asesoramiento')
+      .leftJoinAndSelect('contrato.categoria', 'categoria')
+      .leftJoinAndSelect('contrato.tipoPago', 'tipoPago')
+      .leftJoinAndSelect('contrato.tipoTrabajo', 'tipoTrabajo')
+      .where('asesoramiento.id = :idAsesoria', { idAsesoria })
+      .getOne();
   }
 
   async getDelegado(id_asesoramiento: number) {

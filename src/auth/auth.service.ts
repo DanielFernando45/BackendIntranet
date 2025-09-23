@@ -109,6 +109,7 @@ export class AuthService {
       username: user.username,
       nombre,
       role: user.rol,
+      id_usuario: idUsuario, // 👈 lo agregamos aquí
     };
 
     if (idSupervisor) datos_usuario.id_supervisor = idSupervisor;

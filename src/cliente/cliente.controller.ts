@@ -1,4 +1,17 @@
-import { Body, Controller, UsePipes, ValidationPipe,Post, Get, Param, ParseIntPipe, Patch, Delete, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  UsePipes,
+  ValidationPipe,
+  Post,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Delete,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { ClienteService } from './cliente.service';
 import { CreateClienteDto } from './dto/crear-cliente.dto';
 import { updateClienteDto } from './dto/update-cliente.dto';
@@ -8,72 +21,84 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 
 @Controller('cliente')
 export class ClienteController {
-    constructor(private readonly clienteService:ClienteService){}
+  constructor(private readonly clienteService: ClienteService) {}
 
-    @Get(':id')
-    async listOne(@Param('id',ParseIntPipe) id:number){
-        return this.clienteService.listOneClient(id)
-    }
+  @Get(':id')
+  async listOne(@Param('id', ParseIntPipe) id: number) {
+    return this.clienteService.listOneClient(id);
+  }
 
-    @Get('listar/:id')
-    async listAllByAsesoramiento(@Param('id', ParseIntPipe) id: number){
-        return this.clienteService.listAllByAsesoramiento(id);
-    }
+  @Get('listar/:id')
+  async listAllByAsesoramiento(@Param('id', ParseIntPipe) id: number) {
+    return this.clienteService.listAllByAsesoramiento(id);
+  }
 
-    @Get()
-    @UseGuards(JwtAuthGuard)
-    async listAll(){
-        return this.clienteService.listClients();
-    }
-    @Get("filter/all")
-    async listAllAsignar(){
-        return this.clienteService.listarClientesAsignar()
-    }
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async listAll() {
+    return this.clienteService.listClients();
+  }
+  @Get('filter/all')
+  async listAllAsignar() {
+    return this.clienteService.listarClientesAsignar();
+  }
 
-    @Post("/add")
-    async crearCliente(@Body() createClienteDto:CreateClienteDto){
-        return this.clienteService.crearCliente(createClienteDto)
-    }
+  @Get('asesor/:idCliente')
+  async obtenerDatosAsesor(
+    @Param('idCliente', ParseIntPipe) idCliente: number,
+  ) {
+    return this.clienteService.obtenerDatosAsesor(idCliente);
+  }
 
-    @Patch('/update/:id')
-    async update(@Param('id',ParseIntPipe) id:number,@Body() body:updateClienteDto){
-        return this.clienteService.patchByClient(id,body)
-    }
+  @Post('/add')
+  async crearCliente(@Body() createClienteDto: CreateClienteDto) {
+    return this.clienteService.crearCliente(createClienteDto);
+  }
 
-    @Patch('updated_cliente/:id')
-    async updateByClient(@Param('id',ParseIntPipe) id:number,@Body() body:updateClienteDto){
-        return this.clienteService.patchByClient(id,body)
-    }
+  @Patch('/update/:id')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: updateClienteDto,
+  ) {
+    return this.clienteService.patchByClient(id, body);
+  }
 
-    @Delete('delete/:id')
-    async delete(@Param('id',ParseIntPipe) id:number){
-        return this.clienteService.deletedCliente(id)
-    }
+  @Patch('updated_cliente/:id')
+  async updateByClient(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: updateClienteDto,
+  ) {
+    return this.clienteService.patchByClient(id, body);
+  }
 
-    @Get('filter/sin_asignar')
-    async getClientesSinAsignar(){
-        return this.clienteService.clientesSinAsignar()
-    }
+  @Delete('delete/:id')
+  async delete(@Param('id', ParseIntPipe) id: number) {
+    return this.clienteService.deletedCliente(id);
+  }
 
-    @UseGuards(JwtAuthGuard,RolesGuard)
-    @Roles("admin")
-    @Patch("desactivate/:id")
-    async desactivate(@Param('id',ParseIntPipe) id:number){
-        return this.clienteService.desactivateCliente(id)
-    }
+  @Get('filter/sin_asignar')
+  async getClientesSinAsignar() {
+    return this.clienteService.clientesSinAsignar();
+  }
 
-    @Get('miAsesoramiento/:id')
-    async getAsesoramientos(@Param('id',ParseIntPipe) id:number){
-        return this.clienteService.getAsesorias(id)
-    }
-    @Get("misContratos/:id")
-    async getContratos(@Param('id',ParseIntPipe) id:number){
-        return this.clienteService.getContratos(id)
-    }
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Patch('desactivate/:id')
+  async desactivate(@Param('id', ParseIntPipe) id: number) {
+    return this.clienteService.desactivateCliente(id);
+  }
 
-    @Get('idClienteByAsesoramiento/:id')
-    async idDelegado(@Param('id',ParseIntPipe) id:number){
-        return this.clienteService.getDelegado(id)
-    }
+  @Get('miAsesoramiento/:id')
+  async getAsesoramientos(@Param('id', ParseIntPipe) id: number) {
+    return this.clienteService.getAsesorias(id);
+  }
+  @Get('misContratos/:id')
+  async getContratos(@Param('id', ParseIntPipe) id: number) {
+    return this.clienteService.getContratos(id);
+  }
 
+  @Get('idClienteByAsesoramiento/:id')
+  async idDelegado(@Param('id', ParseIntPipe) id: number) {
+    return this.clienteService.getDelegado(id);
+  }
 }
