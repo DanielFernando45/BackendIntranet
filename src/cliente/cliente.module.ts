@@ -8,11 +8,24 @@ import { GradoAcademico } from 'src/common/entidades/gradoAcademico.entity';
 import { UsuarioModule } from 'src/usuario/usuario.module';
 import { AsesoramientoModule } from 'src/asesoramiento/asesoramiento.module';
 import { Rol } from 'src/rol/entities/rol.entity';
+import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
+import { Contrato } from 'src/contrato/entities/contrato.entity';
 
 @Module({
-  exports:[ClienteService,TypeOrmModule],
-  imports:[TypeOrmModule.forFeature([Cliente,Usuario,GradoAcademico, Rol]),UsuarioModule,forwardRef(()=>AsesoramientoModule)],
+  exports: [ClienteService, TypeOrmModule],
+  imports: [
+    TypeOrmModule.forFeature([
+      Cliente,
+      Usuario,
+      GradoAcademico,
+      Rol,
+      ProcesosAsesoria,
+      Contrato,
+    ]),
+    UsuarioModule,
+    forwardRef(() => AsesoramientoModule),
+  ],
   controllers: [ClienteController],
-  providers: [ClienteService]
+  providers: [ClienteService],
 })
 export class ClienteModule {}
