@@ -94,22 +94,54 @@ export class AsuntosService {
       await queryRunner.release();
     }
   }
-
   async EstateToProcess(id: string, body: ChangeToProcess) {
-    const exists = await this.asuntoRepo.findOneBy({ id });
-    if (!exists)
-      throw new NotFoundException('No se encontro un registro con ese id');
-    if (exists.fecha_revision !== null)
-      throw new BadRequestException('Ese asunto ya esta en proceso');
+    console.log('📩 Llega desde front (string):', body.fecha_estimada);
 
-    const changeState = await this.asuntoRepo.update(id, {
-      fecha_terminado: body.fecha_terminado,
-      fecha_revision: new Date(),
-      estado: Estado_asunto.PROCESO,
-    });
-    if (changeState.affected === 0)
-      throw new NotFoundException('No se encontro un asunto con ese ID');
-    return `Se actualizo las filas estado y fecha_revision del id:${id}`;
+    const fechaValida = new Date(body.fecha_estimada);
+
+    if (isNaN(fechaValida.getTime())) {
+      throw new BadRequestException('Fecha estimada inválida');
+    }
+
+    console.log(
+      '🕑 Parseada en backend (Date real):',
+      fechaValida.toISOString(),
+    );
+
+    try {
+      // 🔎 Usamos QueryBuilder en vez de update()
+      const result = await this.asuntoRepo
+        .createQueryBuilder()
+        .update()
+        .set({
+          fecha_estimada: fechaValida,
+          fecha_revision: new Date(),
+          estado: Estado_asunto.PROCESO,
+        })
+        .where('id = :id', { id })
+        .execute();
+
+      if (result.affected === 0) {
+        throw new NotFoundException(`No se encontró un asunto con id: ${id}`);
+      }
+
+      console.log('📤 Guardando en BD:', {
+        fecha_estimada: fechaValida.toISOString(),
+        fecha_revision: new Date().toISOString(),
+        estado: Estado_asunto.PROCESO,
+      });
+
+      return {
+        status: 200,
+        success: true,
+        message: `Se actualizó el asunto ${id}`,
+      };
+    } catch (err) {
+      console.error('❌ Error al actualizar el asunto:', err);
+      throw new InternalServerErrorException(
+        'Hubo un error al actualizar el asunto.',
+      );
+    }
   }
 
   async finishAsunt(
@@ -139,7 +171,7 @@ export class AsuntosService {
         {
           titulo: cambio_asunto,
           estado: Estado_asunto.TERMINADO,
-          fecha_terminado: fecha_actual,
+          fecha_terminado: new Date(), // Date nativo
         },
       );
 
@@ -223,60 +255,63 @@ export class AsuntosService {
       .createQueryBuilder('asun')
       .innerJoinAndSelect('asun.documentos', 'doc')
       .innerJoin('asun.asesoramiento', 'ase')
-      .where('ase.id=:id', { id })
+      .where('ase.id = :id', { id })
       .andWhere('asun.estado IN (:...estados)', {
         estados: [Estado_asunto.ENTREGADO, Estado_asunto.PROCESO],
       })
       .select([
         'asun.id AS id_asunto',
-        'asun.titulo AS Titulo',
-        'asun.estado AS Estado',
-        'asun.fecha_entregado AS Fecha_entregado',
+        'asun.titulo AS titulo',
+        'asun.estado AS estado',
+        'asun.fecha_entregado AS fecha_entrega',
         'ase.profesion_asesoria AS profesion_asesoria',
-        'asun.fecha_revision AS Fecha_revision',
-        'asun.fecha_terminado AS Fecha_terminado',
-        'doc.nombre AS Documento_nombre',
+        'asun.fecha_revision AS fecha_revision',
+        'asun.fecha_estimada AS fecha_estimada',
+        'asun.fecha_terminado AS fecha_terminado',
+        'doc.nombre AS documento_nombre',
       ])
       .orderBy('asun.fecha_entregado', 'ASC')
       .getRawMany();
 
-    if (!listAll || listAll.length === 0)
+    if (!listAll || listAll.length === 0) {
       throw new NotFoundException('No se encontro');
+    }
 
-    let idUsados: number[] = [];
-    let arregloAsuntos: object[] = [];
+    let idUsados: string[] = [];
+    let arregloAsuntos: any[] = [];
     let contador_alumnos = 0;
     let contador_columnas = -1;
 
-    console.log(listAll);
     for (let i = 0; i < listAll.length; i++) {
       const documento = listAll[i];
 
       if (contador_alumnos >= 2) {
         break;
       }
-      console.log(contador_alumnos);
+
       if (idUsados.includes(documento.id_asunto)) {
         arregloAsuntos[contador_columnas] = {
           ...arregloAsuntos[contador_columnas],
-          [`documento_${contador_alumnos}`]: documento.Documento_nombre,
+          [`documento_${contador_alumnos}`]: documento.documento_nombre,
         };
       } else {
         contador_columnas += 1;
         contador_alumnos = 1;
         arregloAsuntos[contador_columnas] = {
           id_asunto: documento.id_asunto,
-          titulo: documento.Titulo,
-          estado: documento.Estado,
-          fecha_entrega: documento.Fecha_entregado,
+          titulo: documento.titulo,
+          estado: documento.estado,
+          fecha_entrega: documento.fecha_entrega,
           profesion_asesoria: documento.profesion_asesoria,
-          fecha_revision: documento.Fecha_revision,
-          fecha_terminado: documento.Fecha_terminado,
-          documento_0: documento.Documento_nombre,
+          fecha_revision: documento.fecha_revision,
+          fecha_estimada: documento.fecha_estimada,
+          fecha_terminado: documento.fecha_terminado,
+          documento_0: documento.documento_nombre,
         };
         idUsados.push(documento.id_asunto);
       }
     }
+
     return arregloAsuntos;
   }
 
@@ -573,21 +608,50 @@ export class AsuntosService {
   }
 
   async editarFechaAsuntoPendiente(id: string, body: any) {
-    console.log(id);
-    console.log(body.horario);
+    console.log('📩 ID:', id);
+    console.log('📩 BODY CRUDO:', body);
+    console.log('📩 BODY.fecha_estimada:', body.fecha_estimada);
 
-    const asunto = await this.asuntoRepo
-      .createQueryBuilder()
-      .update()
-      .set({ fecha_terminado: body.horario })
-      .where('id = :id', { id })
-      .execute();
+    if (!body.fecha_estimada) {
+      throw new BadRequestException('El campo fecha_estimada es obligatorio');
+    }
 
-    console.log(asunto.affected ? 'Actualizado' : 'No se actualizo');
+    // ✅ Forzar a string y validar antes de new Date
+    const fechaStr: string = String(body.fecha_estimada);
+    const fechaEstimada = new Date(fechaStr);
 
-    return {
-      status: 200,
-      success: true,
-    };
+    if (isNaN(fechaEstimada.getTime())) {
+      throw new BadRequestException(
+        `La fecha '${fechaStr}' no es válida. Formato esperado: YYYY-MM-DDTHH:mm:ss.sssZ`,
+      );
+    }
+
+    console.log('🕑 Fecha parseada (Date):', fechaEstimada);
+    console.log('🕑 ISO final que se guardará:', fechaEstimada.toISOString());
+
+    try {
+      const result = await this.asuntoRepo
+        .createQueryBuilder()
+        .update()
+        .set({ fecha_estimada: fechaEstimada })
+        .where('id = :id', { id })
+        .execute();
+
+      if (result.affected === 0) {
+        throw new NotFoundException(`No se encontró el asunto con id: ${id}`);
+      }
+
+      return {
+        status: 200,
+        success: true,
+        message: `Fecha estimada actualizada correctamente para el asunto ${id}`,
+        fecha_estimada: fechaEstimada.toISOString(),
+      };
+    } catch (err) {
+      console.error('❌ Error al actualizar la fecha estimada:', err);
+      throw new InternalServerErrorException(
+        'Hubo un error al actualizar la fecha estimada.',
+      );
+    }
   }
 }

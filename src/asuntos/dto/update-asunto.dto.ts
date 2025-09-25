@@ -1,6 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
+  IsDateString,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -15,7 +16,7 @@ export class UpdateAsuntoDto extends PartialType(CreateAsuntoDto) {
   @IsString()
   @IsNotEmpty()
   titulo: string;
-  
+
   @IsOptional()
   @Transform(({ value }) => {
     if (!value) return [];
@@ -34,6 +35,11 @@ export class UpdateAsuntoDto extends PartialType(CreateAsuntoDto) {
   @IsOptional()
   @Type(() => Number)
   idAsesoramiento?: number;
+  
+  @IsOptional()
+  @IsDateString()
+  @Transform(({ value }) => (value ? new Date(value).toISOString() : null))
+  fecha_terminado?: string;
 
   @IsEnum(Subido)
   @IsOptional()

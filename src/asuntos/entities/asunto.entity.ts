@@ -32,6 +32,9 @@ export class Asunto {
   @Column({ nullable: true })
   fecha_revision: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  fecha_estimada: Date;
+
   @Column({ nullable: true })
   fecha_terminado: Date;
 

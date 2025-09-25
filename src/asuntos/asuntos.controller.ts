@@ -16,6 +16,8 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Put,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { AsuntosService } from './asuntos.service';
 import { CreateAsuntoDto } from './dto/create-asunto.dto';
@@ -28,8 +30,6 @@ import { ChangeToProcess } from './dto/change-to-process.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { IsDelegadoGuard } from 'src/common/guards/delegado.guard';
 import { updateClienteDto } from 'src/cliente/dto/update-cliente.dto';
-
-const HOST_API = 'http://localhost:3001';
 
 @Controller('asuntos')
 export class AsuntosController {
@@ -70,13 +70,15 @@ export class AsuntosController {
   }
 
   @Patch('en_proceso/:id')
-  async toProcess(
-    @Param('id', new ParseUUIDPipe()) id: string,
+  @UsePipes(new ValidationPipe({ transform: false })) // 🚨 transform desactivado SOLO aquí
+  async EstateToProcess(
+    @Param('id') id: string,
     @Body() body: ChangeToProcess,
   ) {
-    return await this.asuntosService.EstateToProcess(id, body);
+    return this.asuntosService.EstateToProcess(id, body);
   }
 
+  
   @Patch('finished/:id')
   @UseInterceptors(
     FilesInterceptor('files', 10, {
@@ -86,11 +88,17 @@ export class AsuntosController {
   async finishAsunto(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() cambioAsunto: UpdateAsuntoDto,
+
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     if (!files || files.length === 0)
       throw new BadRequestException('No se ha enviado archivos');
     try {
+      console.log('Body recibido:', cambioAsunto);
+      console.log(
+        'Files recibidos:',
+        files?.map((f) => f.originalname),
+      );
       const newTitulo = cambioAsunto.titulo;
       if (!newTitulo) throw new BadRequestException('Falta agregar el titulo');
       return await this.asuntosService.finishAsunt(id, newTitulo, files);

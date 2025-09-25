@@ -7,9 +7,12 @@ import { AsuntosModule } from "src/asuntos/asuntos.module";
 import { AsesoramientoModule } from "src/asesoramiento/asesoramiento.module";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { TipoContrato } from "./entidades/tipoContrato.entity";
+import { Asunto } from "src/asuntos/entities/asunto.entity";
+import { Reunion } from "src/reuniones/entities/reunion.entity";
+import { ProcesosAsesoria } from "src/procesos_asesoria/entities/procesos_asesoria.entity";
 
 @Module({
-    imports:[TypeOrmModule.forFeature([TipoContrato]),ProcesosAsesoriaModule,AsesoramientoModule,ReunionesModule,forwardRef(() =>AsuntosModule)],
+    imports:[TypeOrmModule.forFeature([TipoContrato, Asunto, Reunion, ProcesosAsesoria]),ProcesosAsesoriaModule,AsesoramientoModule,ReunionesModule,forwardRef(() =>AsuntosModule)],
     controllers:[CommonController],
     providers:[CommonService],
 })
