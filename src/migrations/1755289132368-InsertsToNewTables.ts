@@ -35,7 +35,7 @@ export class InsertsToNewTables1755289132368 implements MigrationInterface {
             id_tipoTrabajo,
             id_tipoPago,
             id_categoria)
-        VALUES ('8e88bd51-9430-4a2b-83b5-c4781e03a73b','proyecto', 'activo', 'avance', ${1},${3},${1},'${idCategoria01}');
+        VALUES ('8e88bd51-9430-4a2b-83b5-c4781e03a73b','proyecto', 'activo', 'avance', ${1},${2},${1},'${idCategoria01}');
       `);
 
         await queryRunner.query(`
@@ -48,7 +48,7 @@ export class InsertsToNewTables1755289132368 implements MigrationInterface {
             id_tipoTrabajo,
             id_tipoPago,
             id_categoria)
-        VALUES ('8096e167-fd86-460b-bba2-424e8f4560f6','completo', 'activo', 'avance', ${2},${3},${2},'${idCategoria01}');
+        VALUES ('8096e167-fd86-460b-bba2-424e8f4560f6','completo', 'activo', 'avance', ${2},${2},${2},'${idCategoria01}');
       `);
 
     }

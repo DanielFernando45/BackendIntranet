@@ -44,14 +44,14 @@ export class Registros1746554350124 implements MigrationInterface {
             INSERT INTO Alejandria.tipo_trabajo (id, nombre) VALUES 
               (1, 'Proyecto bachillerato'),
               (2, 'Tesis Pregrado'),
-              (3, 'Tesis'),
-              (4, 'Tesis Maestria'),
-              (5, 'Tesis Doctorado'),
-              (6, 'Plan de negocio'),
-              (7, 'Revision sistematica'),
-              (8, 'Articulo cientifico'),
-              (9, 'Estudio de prefactibilidad'),
-              (10, 'Suficiencia personal');
+              (3, 'Tesis Maestria'),
+              (4, 'Tesis Doctorado'),
+              (5, 'Plan de negocio'),
+              (6, 'Revision sistematica'),
+              (7, 'Articulo cientifico'),
+              (8, 'Estudio de prefactibilidad'),
+              (9, 'Suficiencia personal'),
+              (10, 'Tesis de Segunda Especialidad');
           `);
           
           await queryRunner.query(`

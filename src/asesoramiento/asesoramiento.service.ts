@@ -1002,13 +1002,14 @@ export class AsesoramientoService {
       .innerJoin('asesoramiento.procesosasesoria', 'pro')
       .innerJoin('pro.asesor', 'asesor')
       .innerJoin('contrato', 'c', 'c.id_asesoramiento = asesoramiento.id')
+      .innerJoin('tipo_trabajo', 'tt', 'tt.id = c.id_tipoTrabajo')
       .select([
         'DISTINCT asesoramiento.id AS id',
         'asesoramiento.profesion_asesoria AS profesion_asesoria',
         'c.fecha_inicio AS fecha_inicio',
+        'tt.nombre AS tipo_trabajo',
         'c.fecha_fin AS fecha_fin',
         'c.modalidad AS modalidad',
-        'c.servicio AS servicio',
       ])
       .where('asesor.id= :id', { id })
       .andWhere('asesoramiento.estado= :estado', { estado })
@@ -1023,11 +1024,11 @@ export class AsesoramientoService {
         return {
           id: asesoria.id,
           delegado: delegado.nombre_delegado,
+          tipo_trabajo: asesoria.tipo_trabajo,
+          modalidad: asesoria.modalidad,
           profesion_asesoria: asesoria.profesion_asesoria,
           fecha_inicio: asesoria.fecha_inicio,
           fecha_fin: asesoria.fecha_fin,
-          modalidad: asesoria.modalidad,
-          servicio: asesoria.servicio,
         };
       }),
     );
