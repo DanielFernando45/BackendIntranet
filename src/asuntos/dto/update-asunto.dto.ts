@@ -14,8 +14,12 @@ import { CreateAsuntoDto } from './create-asunto.dto';
 
 export class UpdateAsuntoDto extends PartialType(CreateAsuntoDto) {
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   titulo: string;
+
+  @IsString()
+  @IsOptional()
+  titulo_asesor: string;
 
   @IsOptional()
   @Transform(({ value }) => {

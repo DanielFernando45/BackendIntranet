@@ -155,54 +155,67 @@ export class AsuntosService {
 
     try {
       const fecha_actual = new Date();
+
       const validateAsunt = await queryRunner.manager.findOne(Asunto, {
         where: { id },
         select: ['estado', 'fecha_revision'],
       });
-      if (validateAsunt?.estado !== Estado_asunto.PROCESO)
+
+      if (!validateAsunt) {
+        throw new NotFoundException('Asunto no encontrado');
+      }
+
+      if (validateAsunt.estado !== Estado_asunto.PROCESO) {
         throw new BadRequestException(
-          'No se puede modificar porque no esta en proceso',
+          'No se puede modificar porque no está en proceso',
         );
-      if (validateAsunt.fecha_revision > fecha_actual)
-        throw new BadRequestException('Estan mal las fechas');
-      const finishedAsunt = await queryRunner.manager.update(
+      }
+
+      if (validateAsunt.fecha_revision > fecha_actual) {
+        throw new BadRequestException('Las fechas son inválidas');
+      }
+
+      // ✅ Actualiza el asunto
+      await queryRunner.manager.update(
         Asunto,
         { id },
         {
-          titulo: cambio_asunto,
+          titulo_asesor: cambio_asunto,
           estado: Estado_asunto.TERMINADO,
-          fecha_terminado: new Date(), // Date nativo
+          fecha_terminado: fecha_actual,
         },
       );
 
-      const listNames = await Promise.all(
-        files.map(async (file) => {
-          return await this.backblazeService.uploadFile(
-            file,
-            DIRECTORIOS.DOCUMENTOS,
-          );
-        }),
-      );
-      await Promise.all(
-        listNames.map(async (data) => {
-          const nombre = data.split('/')[1];
-          const fileData = {
-            nombreDocumento: `${nombre}`,
-            directorio: `${data}`,
-          };
-          await this.documentosService.finallyDocuments(
-            id,
-            fileData,
-            queryRunner.manager,
-          );
-        }),
-      );
+      // ✅ Solo procesa si hay archivos
+      if (files && files.length > 0) {
+        const listNames = await Promise.all(
+          files.map((file) =>
+            this.backblazeService.uploadFile(file, DIRECTORIOS.DOCUMENTOS),
+          ),
+        );
+
+        await Promise.all(
+          listNames.map(async (data) => {
+            const nombre = data.split('/')[1];
+            const fileData = {
+              nombreDocumento: nombre,
+              directorio: data,
+            };
+
+            await this.documentosService.finallyDocuments(
+              id,
+              fileData,
+              queryRunner.manager,
+            );
+          }),
+        );
+      }
 
       await queryRunner.commitTransaction();
-      return 'Terminado el asunto satisfactoriamente';
+      return 'Asunto terminado satisfactoriamente';
     } catch (err) {
       await queryRunner.rollbackTransaction();
-      throw new InternalServerErrorException(`${err.message}`);
+      throw new InternalServerErrorException(err.message || 'Error interno');
     } finally {
       await queryRunner.release();
     }
@@ -214,39 +227,31 @@ export class AsuntosService {
       order: { fecha_entregado: 'DESC' },
       select: [
         'id',
-        'titulo',
+        'titulo_asesor',
         'fecha_entregado',
         'fecha_revision',
         'fecha_terminado',
         'estado',
       ],
     });
+
     console.log(listFinished);
+
     if (!listFinished || listFinished.length === 0)
       throw new NotFoundException('No hay asuntos terminados.');
 
-    for (const asunto of listFinished) {
-      if (
-        !asunto.titulo ||
-        !asunto.fecha_entregado ||
-        !asunto.fecha_revision ||
-        !asunto.fecha_terminado
-      ) {
-        throw new BadRequestException(
-          `Faltan datos en el asunto: ${JSON.stringify(asunto)}`,
-        );
-      }
-    }
+    // Mapeo de la respuesta
     const response: listFinished[] = listFinished.map((asunto) => {
       return {
         id: asunto.id,
-        titulo: asunto.titulo,
+        titulo_asesor: asunto.titulo_asesor,
         fecha_entregado: asunto.fecha_entregado,
         fecha_proceso: asunto.fecha_revision,
         fecha_terminado: asunto.fecha_terminado,
         estado: asunto.estado,
       };
     });
+
     return response;
   }
 
@@ -473,7 +478,9 @@ export class AsuntosService {
       throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
     }
 
-    // ✅ idsElminar ya llega como number[]
+    // Verifica que se esté enviando el título del asesor
+    console.log('Actualizando asunto con datos:', updateAsuntoDto);
+
     const idsArray = updateAsuntoDto.idsElminar ?? [];
 
     // 🔴 Eliminar documentos si hay IDs
@@ -530,10 +537,14 @@ export class AsuntosService {
     }
 
     // 🟡 Actualizar campos del Asunto
-    await this.asuntoRepo.update(id, {
-      titulo: updateAsuntoDto.titulo,
-      // puedes añadir más campos si quieres actualizar
-    });
+    try {
+      await this.asuntoRepo.update(id, {
+        titulo_asesor: updateAsuntoDto.titulo_asesor, // Asegúrate de que este valor no sea vacío o null
+      });
+    } catch (error) {
+      console.error('Error al actualizar el asunto:', error);
+      throw new InternalServerErrorException('Error al actualizar el asunto');
+    }
 
     return {
       statusCode: 200,

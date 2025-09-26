@@ -23,6 +23,9 @@ export class Asunto {
   @Column()
   titulo: string;
 
+  @Column()
+  titulo_asesor: string;
+
   @Column({ type: 'enum', enum: Estado_asunto })
   estado: Estado_asunto;
 
