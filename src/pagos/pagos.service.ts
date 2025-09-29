@@ -103,22 +103,28 @@ export class PagosService {
   async listarContratosAlContado() {
     const listar = await this.dataSource.query(`
     SELECT 
-      con.id as id_contrato,
-      t.nombre as trabajo_investigacion,
-      CONCAT(c.nombre, ' ', c.apellido) as delegado,
-      con.fecha_inicio as fecha_registro,
-      con.modalidad as modalidad,
-      tp.nombre as tipo_pago,
-      a.profesion_asesoria,  -- Se agrega el campo profesíon_asesoria
-      a.id as id_asesoramiento  -- Se agrega el id_asesoramiento
-    FROM asesoramiento a
-      INNER JOIN contrato con ON a.id = con.id_asesoramiento
+      con.id AS id_contrato,
+      t.nombre AS trabajo_investigacion,
+      CONCAT(c.nombre, ' ', c.apellido) AS delegado,
+      con.fecha_inicio AS fecha_registro,
+      con.modalidad AS modalidad,
+      tp.nombre AS tipo_pago,
+      a.profesion_asesoria,
+      a.id AS id_asesoramiento,
+      COUNT(CASE WHEN pg.estado_pago = 1 THEN 1 END) AS pagos_confirmados
+    FROM contrato con
+      INNER JOIN asesoramiento a ON a.id = con.id_asesoramiento
       INNER JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
       INNER JOIN procesos_asesoria p ON a.id = p.id_asesoramiento
       INNER JOIN cliente c ON p.id_cliente = c.id 
       INNER JOIN tipo_pago tp ON con.id_tipoPago = tp.id
+      LEFT JOIN informacion_pagos ip ON ip.id_asesoramiento = a.id
+      LEFT JOIN pago pg ON pg.id_informacion_pago = ip.id
     WHERE p.esDelegado = true
-      AND con.id_tipoPago = 1  -- Filtra por "al contado" (asumimos que el valor 1 es al contado)
+      AND con.id_tipoPago = 1   -- "al contado"
+    GROUP BY con.id, t.nombre, c.nombre, c.apellido, con.fecha_inicio,
+             con.modalidad, tp.nombre, a.profesion_asesoria, a.id
+    HAVING COUNT(CASE WHEN pg.estado_pago = 1 THEN 1 END) = 0
   `);
     return listar;
   }
@@ -126,22 +132,29 @@ export class PagosService {
   async listarContratosACuotas() {
     const listar = await this.dataSource.query(`
     SELECT 
-      con.id as id_contrato,
-      t.nombre as trabajo_investigacion,
-      CONCAT(c.nombre, ' ', c.apellido) as delegado,
-      con.fecha_inicio as fecha_registro,
-      con.modalidad as modalidad,
-      tp.nombre as tipo_pago,
-      a.profesion_asesoria,  -- Se agrega el campo profesíon_asesoria
-      a.id as id_asesoramiento  -- Se agrega el id_asesoramiento
-    FROM asesoramiento a
-      INNER JOIN contrato con ON a.id = con.id_asesoramiento
+      con.id AS id_contrato,
+      t.nombre AS trabajo_investigacion,
+      CONCAT(c.nombre, ' ', c.apellido) AS delegado,
+      con.fecha_inicio AS fecha_registro,
+      con.modalidad AS modalidad,
+      tp.nombre AS tipo_pago,
+      a.profesion_asesoria,
+      a.id AS id_asesoramiento,
+      COALESCE(ip.numero_cuotas, 0) AS numero_cuotas,
+      COUNT(CASE WHEN pg.estado_pago = 1 THEN 1 END) AS pagos_confirmados
+    FROM contrato con
+      INNER JOIN asesoramiento a ON a.id = con.id_asesoramiento
       INNER JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
       INNER JOIN procesos_asesoria p ON a.id = p.id_asesoramiento
       INNER JOIN cliente c ON p.id_cliente = c.id 
       INNER JOIN tipo_pago tp ON con.id_tipoPago = tp.id
+      LEFT JOIN informacion_pagos ip ON ip.id_asesoramiento = a.id
+      LEFT JOIN pago pg ON pg.id_informacion_pago = ip.id
     WHERE p.esDelegado = true
-      AND con.id_tipoPago = 2  -- Filtra por "a cuotas" (asumimos que el valor 2 es a cuotas)
+      AND con.id_tipoPago = 2   -- "a cuotas"
+    GROUP BY con.id, t.nombre, c.nombre, c.apellido, con.fecha_inicio,
+             con.modalidad, tp.nombre, a.profesion_asesoria, a.id, ip.numero_cuotas
+    HAVING COUNT(CASE WHEN pg.estado_pago = 1 THEN 1 END) = 0
   `);
     return listar;
   }
