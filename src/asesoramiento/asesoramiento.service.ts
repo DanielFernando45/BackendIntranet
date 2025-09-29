@@ -697,13 +697,14 @@ export class AsesoramientoService {
   async listarContratosAsignados() {
     const listar = await this.dataSource.query(`
     SELECT 
-      a.id AS id_asesoramiento,              -- ✅ ID del asesoramiento
+      a.id AS id_asesoramiento,              -- ID del asesoramiento
       con.id AS id_contrato,                 -- Contrato
+      con.servicio AS servicio,              -- 👈 Campo servicio agregado
+      con.modalidad AS modalidad,
       t.nombre AS trabajo_investigacion,     -- Tipo de trabajo
       CONCAT(c.nombre, ' ', c.apellido) AS delegado,
       con.fecha_inicio AS fecha_inicio,      -- Fecha de inicio del contrato
       con.fecha_fin AS fecha_fin,            -- Fecha de fin del contrato
-      con.modalidad AS modalidad,
       tp.nombre AS tipo_pago
     FROM asesoramiento a
       INNER JOIN contrato con ON a.id = con.id_asesoramiento
