@@ -78,7 +78,6 @@ export class AsuntosController {
     return this.asuntosService.EstateToProcess(id, body);
   }
 
-  
   @Patch('finished/:id')
   @UseInterceptors(
     FilesInterceptor('files', 10, {
@@ -133,6 +132,21 @@ export class AsuntosController {
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     return this.asuntosService.updateAsunto(id, updateAsuntoDto, files);
+  }
+
+  @Patch('estudiante/:id')
+  @UseInterceptors(
+    FilesInterceptor('files', 10, {
+      fileFilter,
+      limits: { fileSize: 1024 * 1025 * 30 },
+    }),
+  )
+  async updateAsuntoEstudiante(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() updateAsuntoDto: UpdateAsuntoDto,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.asuntosService.updateAsuntoEstudiante(id, updateAsuntoDto, files);
   }
 
   @Delete(':id')

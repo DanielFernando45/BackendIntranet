@@ -552,7 +552,92 @@ export class AsuntosService {
       asunto: await this.asuntoRepo.findOne({ where: { id } }),
     };
   }
+  async updateAsuntoEstudiante(
+    id: string,
+    updateAsuntoDto: UpdateAsuntoDto,
+    files: Express.Multer.File[],
+  ) {
+    const asunto = await this.asuntoRepo.findOne({ where: { id } });
 
+    if (!asunto) {
+      throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
+    }
+
+    // Verifica que se esté enviando el título del asesor
+    console.log('Actualizando asunto con datos:', updateAsuntoDto);
+
+    const idsArray = updateAsuntoDto.idsElminar ?? [];
+
+    // 🔴 Eliminar documentos si hay IDs
+    if (idsArray.length > 0) {
+      const documentos = await this.documentoRepo
+        .createQueryBuilder()
+        .where('id IN (:...ids)', { ids: idsArray })
+        .select(['id', 'ruta'])
+        .getRawMany();
+
+      // Eliminar en Backblaze
+      await Promise.all(
+        documentos.map(async (doc: any) => {
+          await this.backblazeService.deleteFile(doc.ruta);
+        }),
+      );
+
+      // Eliminar en BD
+      await this.documentoRepo
+        .createQueryBuilder()
+        .delete()
+        .where('id IN (:...ids)', { ids: idsArray })
+        .execute();
+    }
+
+    // 🟢 Subida de archivos nuevos
+    if (files && files.length > 0) {
+      const listNombres = await Promise.all(
+        files.map(async (file) => {
+          return await this.backblazeService.uploadFile(
+            file,
+            DIRECTORIOS.DOCUMENTOS,
+          );
+        }),
+      );
+
+      await this.documentoRepo
+        .createQueryBuilder()
+        .insert()
+        .into(Documento)
+        .values(
+          listNombres.map((nameFile) => {
+            const nombre = nameFile.split('/')[1];
+            return {
+              nombre,
+              ruta: nameFile,
+              subido_por: updateAsuntoDto.subido_por ?? Subido.ASESOR,
+              created_at: new Date(),
+              asunto: { id },
+            };
+          }),
+        )
+        .execute();
+    }
+
+    // 🟡 Actualizar campos del Asunto
+    try {
+      await this.asuntoRepo.update(id, {
+        titulo: updateAsuntoDto.titulo, // Asegúrate de que este valor no sea vacío o null
+      });
+    } catch (error) {
+      console.error('Error al actualizar el asunto:', error);
+      throw new InternalServerErrorException('Error al actualizar el asunto');
+    }
+
+    return {
+      statusCode: 200,
+      success: true,
+      asunto: await this.asuntoRepo.findOne({ where: { id } }),
+    };
+  }
+  
   async eliminarAsunto(id: string) {
     const asunto = await this.asuntoRepo.findOne({ where: { id } });
 
