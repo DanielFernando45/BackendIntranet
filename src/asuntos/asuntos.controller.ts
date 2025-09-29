@@ -146,7 +146,11 @@ export class AsuntosController {
     @Body() updateAsuntoDto: UpdateAsuntoDto,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.asuntosService.updateAsuntoEstudiante(id, updateAsuntoDto, files);
+    return this.asuntosService.updateAsuntoEstudiante(
+      id,
+      updateAsuntoDto,
+      files,
+    );
   }
 
   @Delete(':id')
