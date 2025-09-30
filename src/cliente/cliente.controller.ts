@@ -43,11 +43,11 @@ export class ClienteController {
     return this.clienteService.listarClientesAsignar();
   }
 
-  @Get('asesor/:idCliente')
+  @Get('asesor/:idAsesoramiento')
   async obtenerDatosAsesor(
-    @Param('idCliente', ParseIntPipe) idCliente: number,
+    @Param('idAsesoramiento', ParseIntPipe) idAsesoramiento: number,
   ) {
-    return this.clienteService.obtenerDatosAsesor(idCliente);
+    return this.clienteService.obtenerDatosAsesor(idAsesoramiento);
   }
 
   @Post('/add')

@@ -180,7 +180,7 @@ export class ClienteService {
       );
     }
   }
-  async obtenerDatosAsesor(idCliente: number) {
+  async obtenerDatosAsesor(idAsesoramiento: number) {
     const result = await this.procesosAsesoriaRepo
       .createQueryBuilder('pa')
       .innerJoin('asesor', 'a', 'a.id = pa.id_asesor') // 👈 ahora apunta a tabla asesor
@@ -197,7 +197,7 @@ export class ClienteService {
         'a.universidad AS universidad',
         'g.nombre AS gradoAcademico',
       ])
-      .where('pa.id_cliente = :idCliente', { idCliente })
+      .where('pa.id_asesoramiento = :idAsesoramiento', { idAsesoramiento })
       .getRawOne();
 
     if (!result) {
