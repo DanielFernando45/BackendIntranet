@@ -69,6 +69,7 @@ export class ContratoService {
 
     return listclientes;
   }
+
   async listarContratosNoAsignados() {
     const contratosNoAsignados = await this.dataSource.query(`
     SELECT 
@@ -209,7 +210,42 @@ export class ContratoService {
     });
     if (!contrato) throw new NotFoundException('Contrato no encontrado');
 
-    // Actualizar campos si vienen en el DTO
+    // 👇 Verificar pagos confirmados
+    const pagosConfirmados = await this.dataSource.query(
+      `
+  SELECT COUNT(*) AS pagos_confirmados
+  FROM contrato con
+    INNER JOIN asesoramiento a ON a.id = con.id_asesoramiento
+    LEFT JOIN informacion_pagos ip ON ip.id_asesoramiento = a.id
+    LEFT JOIN pago pg ON pg.id_informacion_pago = ip.id
+  WHERE con.id = ? AND pg.estado_pago = 1
+  `,
+      [idContrato],
+    );
+
+    const tienePagosConfirmados = pagosConfirmados[0].pagos_confirmados > 0;
+
+    // ✅ Validar tipo de pago
+    if (dto.idTipoPago) {
+      if (tienePagosConfirmados) {
+        // Si ya tiene pagos confirmados y quieren cambiar el tipo
+        if (dto.idTipoPago !== contrato.tipoPago.id) {
+          throw new BadRequestException(
+            'No se puede cambiar el tipo de pago porque ya existen pagos confirmados',
+          );
+        }
+        // Si el tipo es el mismo, dejar pasar (no hace nada)
+      } else {
+        // Si no tiene pagos confirmados, actualizar libremente
+        const tipoPago = await this.tipoPagoRepo.findOne({
+          where: { id: dto.idTipoPago },
+        });
+        if (!tipoPago) throw new NotFoundException('TipoPago no encontrado');
+        contrato.tipoPago = tipoPago;
+      }
+    }
+
+    // Actualizar otros campos
     if (dto.servicio) contrato.servicio = dto.servicio;
     if (dto.modalidad) contrato.modalidad = dto.modalidad;
 
@@ -222,14 +258,6 @@ export class ContratoService {
       contrato.tipoTrabajo = tipoTrabajo;
     }
 
-    if (dto.idTipoPago) {
-      const tipoPago = await this.tipoPagoRepo.findOne({
-        where: { id: dto.idTipoPago },
-      });
-      if (!tipoPago) throw new NotFoundException('TipoPago no encontrado');
-      contrato.tipoPago = tipoPago;
-    }
-
     if (dto.idCategoria) {
       const categoria = await this.categoriaRepo.findOne({
         where: { id: dto.idCategoria },
@@ -238,7 +266,6 @@ export class ContratoService {
       contrato.categoria = categoria;
     }
 
-    // Actualizar fechas si vienen
     if (dto.fechaInicio) contrato.fecha_inicio = new Date(dto.fechaInicio);
     if (dto.fechaFin) contrato.fecha_fin = new Date(dto.fechaFin);
 
