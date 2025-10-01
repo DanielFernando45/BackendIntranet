@@ -23,7 +23,7 @@ export class DocumentosService {
 
     @InjectRepository(Documento)
     private documentoRepo: Repository<Documento>,
-  ) { }
+  ) {}
 
   getFile(path: string) {
     const pathFile = join(__dirname, '../../../static/documents', path);
@@ -41,9 +41,9 @@ export class DocumentosService {
     manager: EntityManager,
   ) {
     try {
-      console.log("nombreDocumento:",nombreDocumento)
-      console.log("secureUrl:",secureUrl)
-      console.log("idAsunto:",id)
+      console.log('nombreDocumento:', nombreDocumento);
+      console.log('secureUrl:', secureUrl);
+      console.log('idAsunto:', id);
       if (
         !nombreDocumento ||
         typeof nombreDocumento !== 'string' ||
@@ -71,8 +71,8 @@ export class DocumentosService {
         asunto: { id },
       });
       const response = await manager.save(newDocument);
-      console.log(response)
-      console.log("OK")
+      console.log(response);
+      console.log('OK');
       return response;
     } catch (err) {
       return new InternalServerErrorException(
@@ -80,7 +80,6 @@ export class DocumentosService {
       );
     }
   }
-
   async findDocuments(id: number, subido_por: Subido) {
     const listDocuments = await this.documentoRepo
       .createQueryBuilder('d')
@@ -89,7 +88,8 @@ export class DocumentosService {
       .select([
         'a.id AS id_asunto',
         'd.nombre AS nombre',
-        'a.titulo AS asunto',
+        'a.titulo AS asunto_cliente',
+        'a.titulo_asesor AS asunto_asesor',
         'a.estado AS estado',
         'd.ruta AS ruta',
         'a.fecha_entregado AS fecha_entregado',
@@ -102,16 +102,21 @@ export class DocumentosService {
       .addOrderBy('d.created_at', 'ASC')
       .getRawMany();
 
-    if (listDocuments.length === 0)
-      throw new NotFoundException('No se encontro el documento');
+    if (listDocuments.length === 0) {
+      // 👉 Retorna vacío en vez de lanzar error
+      return { mensaje: 'No se encontraron documentos.' };
+    }
+
     const arreglo: asuntoFileDto[] = [];
 
     for (const document of listDocuments) {
       const ruta_documento = await this.backblazeService.getSignedUrl(
         document['ruta'],
       );
-      const asunto = document['asunto'];
+
       const idAsunto = document['id_asunto'];
+      const asuntoCliente = document['asunto_cliente'];
+      const asuntoAsesor = document['asunto_asesor'];
 
       let index = arreglo.findIndex(
         (item: any) => item['id_asunto'] === idAsunto,
@@ -127,16 +132,18 @@ export class DocumentosService {
       } else if (estado === 'entregado') {
         fecha = document['fecha_entregado'];
       } else {
-        fecha = new Date().toISOString(); // Valor por defecto si no hay fecha específica
+        fecha = new Date().toISOString();
       }
 
       if (index === -1) {
-        // Nuevo asunto
         arreglo.push({
           id_asunto: idAsunto,
-          asunto,
           estado,
-          fecha, // ✅ ya lo tienes
+          asunto: {
+            cliente: asuntoCliente,
+            asesor: asuntoAsesor,
+          },
+          fecha,
           nombreDoc1: document['nombre'],
           ruta1: ruta_documento,
         });
@@ -178,20 +185,23 @@ export class DocumentosService {
 
   async deleteDocumentosByIdAsunto(id: string) {
     try {
-
-      const documentos = await this.documentoRepo.createQueryBuilder()
+      const documentos = await this.documentoRepo
+        .createQueryBuilder()
         .where('id_asunto = :id', { id })
         .select('ruta')
         .execute();
 
-      if (documentos.length == 0)
-        return 'No hay documentos'
+      if (documentos.length == 0) return 'No hay documentos';
 
       // Logica para eliminarlos en blackblaze
-      const listarDocumentosBlackBlaze = await Promise.all(documentos.map(async (doc) => {
-        const documentosEliminados = await this.backblazeService.deleteFile(doc.ruta)
-        console.log(documentosEliminados)
-      }))
+      const listarDocumentosBlackBlaze = await Promise.all(
+        documentos.map(async (doc) => {
+          const documentosEliminados = await this.backblazeService.deleteFile(
+            doc.ruta,
+          );
+          console.log(documentosEliminados);
+        }),
+      );
 
       const documentosEliminados = await this.documentoRepo
         .createQueryBuilder()
@@ -200,7 +210,6 @@ export class DocumentosService {
         .execute();
       return documentosEliminados.affected ?? 0;
       // return (documentosEliminados.affected && documentosEliminados.affected > 0) ? true : false;
-
     } catch (error) {
       console.error('Error al eliminar documentos:', error);
       throw new Error('No se pudieron eliminar los documentos relacionados.');

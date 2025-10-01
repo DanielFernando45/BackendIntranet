@@ -94,22 +94,54 @@ export class AsuntosService {
       await queryRunner.release();
     }
   }
-
   async EstateToProcess(id: string, body: ChangeToProcess) {
-    const exists = await this.asuntoRepo.findOneBy({ id });
-    if (!exists)
-      throw new NotFoundException('No se encontro un registro con ese id');
-    if (exists.fecha_revision !== null)
-      throw new BadRequestException('Ese asunto ya esta en proceso');
+    console.log('📩 Llega desde front (string):', body.fecha_estimada);
 
-    const changeState = await this.asuntoRepo.update(id, {
-      fecha_terminado: body.fecha_terminado,
-      fecha_revision: new Date(),
-      estado: Estado_asunto.PROCESO,
-    });
-    if (changeState.affected === 0)
-      throw new NotFoundException('No se encontro un asunto con ese ID');
-    return `Se actualizo las filas estado y fecha_revision del id:${id}`;
+    const fechaValida = new Date(body.fecha_estimada);
+
+    if (isNaN(fechaValida.getTime())) {
+      throw new BadRequestException('Fecha estimada inválida');
+    }
+
+    console.log(
+      '🕑 Parseada en backend (Date real):',
+      fechaValida.toISOString(),
+    );
+
+    try {
+      // 🔎 Usamos QueryBuilder en vez de update()
+      const result = await this.asuntoRepo
+        .createQueryBuilder()
+        .update()
+        .set({
+          fecha_estimada: fechaValida,
+          fecha_revision: new Date(),
+          estado: Estado_asunto.PROCESO,
+        })
+        .where('id = :id', { id })
+        .execute();
+
+      if (result.affected === 0) {
+        throw new NotFoundException(`No se encontró un asunto con id: ${id}`);
+      }
+
+      console.log('📤 Guardando en BD:', {
+        fecha_estimada: fechaValida.toISOString(),
+        fecha_revision: new Date().toISOString(),
+        estado: Estado_asunto.PROCESO,
+      });
+
+      return {
+        status: 200,
+        success: true,
+        message: `Se actualizó el asunto ${id}`,
+      };
+    } catch (err) {
+      console.error('❌ Error al actualizar el asunto:', err);
+      throw new InternalServerErrorException(
+        'Hubo un error al actualizar el asunto.',
+      );
+    }
   }
 
   async finishAsunt(
@@ -123,54 +155,67 @@ export class AsuntosService {
 
     try {
       const fecha_actual = new Date();
+
       const validateAsunt = await queryRunner.manager.findOne(Asunto, {
         where: { id },
         select: ['estado', 'fecha_revision'],
       });
-      if (validateAsunt?.estado !== Estado_asunto.PROCESO)
+
+      if (!validateAsunt) {
+        throw new NotFoundException('Asunto no encontrado');
+      }
+
+      if (validateAsunt.estado !== Estado_asunto.PROCESO) {
         throw new BadRequestException(
-          'No se puede modificar porque no esta en proceso',
+          'No se puede modificar porque no está en proceso',
         );
-      if (validateAsunt.fecha_revision > fecha_actual)
-        throw new BadRequestException('Estan mal las fechas');
-      const finishedAsunt = await queryRunner.manager.update(
+      }
+
+      if (validateAsunt.fecha_revision > fecha_actual) {
+        throw new BadRequestException('Las fechas son inválidas');
+      }
+
+      // ✅ Actualiza el asunto
+      await queryRunner.manager.update(
         Asunto,
         { id },
         {
-          titulo: cambio_asunto,
+          titulo_asesor: cambio_asunto,
           estado: Estado_asunto.TERMINADO,
           fecha_terminado: fecha_actual,
         },
       );
 
-      const listNames = await Promise.all(
-        files.map(async (file) => {
-          return await this.backblazeService.uploadFile(
-            file,
-            DIRECTORIOS.DOCUMENTOS,
-          );
-        }),
-      );
-      await Promise.all(
-        listNames.map(async (data) => {
-          const nombre = data.split('/')[1];
-          const fileData = {
-            nombreDocumento: `${nombre}`,
-            directorio: `${data}`,
-          };
-          await this.documentosService.finallyDocuments(
-            id,
-            fileData,
-            queryRunner.manager,
-          );
-        }),
-      );
+      // ✅ Solo procesa si hay archivos
+      if (files && files.length > 0) {
+        const listNames = await Promise.all(
+          files.map((file) =>
+            this.backblazeService.uploadFile(file, DIRECTORIOS.DOCUMENTOS),
+          ),
+        );
+
+        await Promise.all(
+          listNames.map(async (data) => {
+            const nombre = data.split('/')[1];
+            const fileData = {
+              nombreDocumento: nombre,
+              directorio: data,
+            };
+
+            await this.documentosService.finallyDocuments(
+              id,
+              fileData,
+              queryRunner.manager,
+            );
+          }),
+        );
+      }
 
       await queryRunner.commitTransaction();
-      return 'Terminado el asunto satisfactoriamente';
+      return 'Asunto terminado satisfactoriamente';
     } catch (err) {
       await queryRunner.rollbackTransaction();
-      throw new InternalServerErrorException(`${err.message}`);
+      throw new InternalServerErrorException(err.message || 'Error interno');
     } finally {
       await queryRunner.release();
     }
@@ -182,39 +227,30 @@ export class AsuntosService {
       order: { fecha_entregado: 'DESC' },
       select: [
         'id',
-        'titulo',
+        'titulo_asesor',
         'fecha_entregado',
         'fecha_revision',
         'fecha_terminado',
         'estado',
       ],
     });
-    console.log(listFinished);
-    if (!listFinished || listFinished.length === 0)
-      throw new NotFoundException('No hay asuntos terminados.');
-
-    for (const asunto of listFinished) {
-      if (
-        !asunto.titulo ||
-        !asunto.fecha_entregado ||
-        !asunto.fecha_revision ||
-        !asunto.fecha_terminado
-      ) {
-        throw new BadRequestException(
-          `Faltan datos en el asunto: ${JSON.stringify(asunto)}`,
-        );
-      }
+    // ✅ Si no hay datos, retornamos un array vacío
+    if (!listFinished || listFinished.length === 0) {
+      return [];
     }
+
+    // Mapeo de la respuesta
     const response: listFinished[] = listFinished.map((asunto) => {
       return {
         id: asunto.id,
-        titulo: asunto.titulo,
+        titulo_asesor: asunto.titulo_asesor,
         fecha_entregado: asunto.fecha_entregado,
         fecha_proceso: asunto.fecha_revision,
         fecha_terminado: asunto.fecha_terminado,
         estado: asunto.estado,
       };
     });
+
     return response;
   }
 
@@ -223,60 +259,63 @@ export class AsuntosService {
       .createQueryBuilder('asun')
       .innerJoinAndSelect('asun.documentos', 'doc')
       .innerJoin('asun.asesoramiento', 'ase')
-      .where('ase.id=:id', { id })
+      .where('ase.id = :id', { id })
       .andWhere('asun.estado IN (:...estados)', {
         estados: [Estado_asunto.ENTREGADO, Estado_asunto.PROCESO],
       })
       .select([
         'asun.id AS id_asunto',
-        'asun.titulo AS Titulo',
-        'asun.estado AS Estado',
-        'asun.fecha_entregado AS Fecha_entregado',
+        'asun.titulo AS titulo',
+        'asun.estado AS estado',
+        'asun.fecha_entregado AS fecha_entrega',
         'ase.profesion_asesoria AS profesion_asesoria',
-        'asun.fecha_revision AS Fecha_revision',
-        'asun.fecha_terminado AS Fecha_terminado',
-        'doc.nombre AS Documento_nombre',
+        'asun.fecha_revision AS fecha_revision',
+        'asun.fecha_estimada AS fecha_estimada',
+        'asun.fecha_terminado AS fecha_terminado',
+        'doc.nombre AS documento_nombre',
       ])
       .orderBy('asun.fecha_entregado', 'ASC')
       .getRawMany();
+      
+    if (!listAll || listAll.length === 0) {
+      return [];
+    }
 
-    if (!listAll || listAll.length === 0)
-      throw new NotFoundException('No se encontro');
-
-    let idUsados: number[] = [];
-    let arregloAsuntos: object[] = [];
+    let idUsados: string[] = [];
+    let arregloAsuntos: any[] = [];
     let contador_alumnos = 0;
     let contador_columnas = -1;
 
-    console.log(listAll);
     for (let i = 0; i < listAll.length; i++) {
       const documento = listAll[i];
 
       if (contador_alumnos >= 2) {
         break;
       }
-      console.log(contador_alumnos);
+
       if (idUsados.includes(documento.id_asunto)) {
         arregloAsuntos[contador_columnas] = {
           ...arregloAsuntos[contador_columnas],
-          [`documento_${contador_alumnos}`]: documento.Documento_nombre,
+          [`documento_${contador_alumnos}`]: documento.documento_nombre,
         };
       } else {
         contador_columnas += 1;
         contador_alumnos = 1;
         arregloAsuntos[contador_columnas] = {
           id_asunto: documento.id_asunto,
-          titulo: documento.Titulo,
-          estado: documento.Estado,
-          fecha_entrega: documento.Fecha_entregado,
+          titulo: documento.titulo,
+          estado: documento.estado,
+          fecha_entrega: documento.fecha_entrega,
           profesion_asesoria: documento.profesion_asesoria,
-          fecha_revision: documento.Fecha_revision,
-          fecha_terminado: documento.Fecha_terminado,
-          documento_0: documento.Documento_nombre,
+          fecha_revision: documento.fecha_revision,
+          fecha_estimada: documento.fecha_estimada,
+          fecha_terminado: documento.fecha_terminado,
+          documento_0: documento.documento_nombre,
         };
         idUsados.push(documento.id_asunto);
       }
     }
+
     return arregloAsuntos;
   }
 
@@ -438,7 +477,9 @@ export class AsuntosService {
       throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
     }
 
-    // ✅ idsElminar ya llega como number[]
+    // Verifica que se esté enviando el título del asesor
+    console.log('Actualizando asunto con datos:', updateAsuntoDto);
+
     const idsArray = updateAsuntoDto.idsElminar ?? [];
 
     // 🔴 Eliminar documentos si hay IDs
@@ -495,10 +536,99 @@ export class AsuntosService {
     }
 
     // 🟡 Actualizar campos del Asunto
-    await this.asuntoRepo.update(id, {
-      titulo: updateAsuntoDto.titulo,
-      // puedes añadir más campos si quieres actualizar
-    });
+    try {
+      await this.asuntoRepo.update(id, {
+        titulo_asesor: updateAsuntoDto.titulo_asesor, // Asegúrate de que este valor no sea vacío o null
+      });
+    } catch (error) {
+      console.error('Error al actualizar el asunto:', error);
+      throw new InternalServerErrorException('Error al actualizar el asunto');
+    }
+
+    return {
+      statusCode: 200,
+      success: true,
+      asunto: await this.asuntoRepo.findOne({ where: { id } }),
+    };
+  }
+  async updateAsuntoEstudiante(
+    id: string,
+    updateAsuntoDto: UpdateAsuntoDto,
+    files: Express.Multer.File[],
+  ) {
+    const asunto = await this.asuntoRepo.findOne({ where: { id } });
+
+    if (!asunto) {
+      throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
+    }
+
+    // Verifica que se esté enviando el título del asesor
+    console.log('Actualizando asunto con datos:', updateAsuntoDto);
+
+    const idsArray = updateAsuntoDto.idsElminar ?? [];
+
+    // 🔴 Eliminar documentos si hay IDs
+    if (idsArray.length > 0) {
+      const documentos = await this.documentoRepo
+        .createQueryBuilder()
+        .where('id IN (:...ids)', { ids: idsArray })
+        .select(['id', 'ruta'])
+        .getRawMany();
+
+      // Eliminar en Backblaze
+      await Promise.all(
+        documentos.map(async (doc: any) => {
+          await this.backblazeService.deleteFile(doc.ruta);
+        }),
+      );
+
+      // Eliminar en BD
+      await this.documentoRepo
+        .createQueryBuilder()
+        .delete()
+        .where('id IN (:...ids)', { ids: idsArray })
+        .execute();
+    }
+
+    // 🟢 Subida de archivos nuevos
+    if (files && files.length > 0) {
+      const listNombres = await Promise.all(
+        files.map(async (file) => {
+          return await this.backblazeService.uploadFile(
+            file,
+            DIRECTORIOS.DOCUMENTOS,
+          );
+        }),
+      );
+
+      await this.documentoRepo
+        .createQueryBuilder()
+        .insert()
+        .into(Documento)
+        .values(
+          listNombres.map((nameFile) => {
+            const nombre = nameFile.split('/')[1];
+            return {
+              nombre,
+              ruta: nameFile,
+              subido_por: updateAsuntoDto.subido_por ?? Subido.ASESOR,
+              created_at: new Date(),
+              asunto: { id },
+            };
+          }),
+        )
+        .execute();
+    }
+
+    // 🟡 Actualizar campos del Asunto
+    try {
+      await this.asuntoRepo.update(id, {
+        titulo: updateAsuntoDto.titulo, // Asegúrate de que este valor no sea vacío o null
+      });
+    } catch (error) {
+      console.error('Error al actualizar el asunto:', error);
+      throw new InternalServerErrorException('Error al actualizar el asunto');
+    }
 
     return {
       statusCode: 200,
@@ -573,21 +703,50 @@ export class AsuntosService {
   }
 
   async editarFechaAsuntoPendiente(id: string, body: any) {
-    console.log(id);
-    console.log(body.horario);
+    console.log('📩 ID:', id);
+    console.log('📩 BODY CRUDO:', body);
+    console.log('📩 BODY.fecha_estimada:', body.fecha_estimada);
 
-    const asunto = await this.asuntoRepo
-      .createQueryBuilder()
-      .update()
-      .set({ fecha_terminado: body.horario })
-      .where('id = :id', { id })
-      .execute();
+    if (!body.fecha_estimada) {
+      throw new BadRequestException('El campo fecha_estimada es obligatorio');
+    }
 
-    console.log(asunto.affected ? 'Actualizado' : 'No se actualizo');
+    // ✅ Forzar a string y validar antes de new Date
+    const fechaStr: string = String(body.fecha_estimada);
+    const fechaEstimada = new Date(fechaStr);
 
-    return {
-      status: 200,
-      success: true,
-    };
+    if (isNaN(fechaEstimada.getTime())) {
+      throw new BadRequestException(
+        `La fecha '${fechaStr}' no es válida. Formato esperado: YYYY-MM-DDTHH:mm:ss.sssZ`,
+      );
+    }
+
+    console.log('🕑 Fecha parseada (Date):', fechaEstimada);
+    console.log('🕑 ISO final que se guardará:', fechaEstimada.toISOString());
+
+    try {
+      const result = await this.asuntoRepo
+        .createQueryBuilder()
+        .update()
+        .set({ fecha_estimada: fechaEstimada })
+        .where('id = :id', { id })
+        .execute();
+
+      if (result.affected === 0) {
+        throw new NotFoundException(`No se encontró el asunto con id: ${id}`);
+      }
+
+      return {
+        status: 200,
+        success: true,
+        message: `Fecha estimada actualizada correctamente para el asunto ${id}`,
+        fecha_estimada: fechaEstimada.toISOString(),
+      };
+    } catch (err) {
+      console.error('❌ Error al actualizar la fecha estimada:', err);
+      throw new InternalServerErrorException(
+        'Hubo un error al actualizar la fecha estimada.',
+      );
+    }
   }
 }

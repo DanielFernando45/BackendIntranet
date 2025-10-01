@@ -58,7 +58,6 @@ export class ReunionesController {
     @Res() res: Response,
   ) {
     const event = body.event;
-    console.log(`📩 Evento recibido: ${event}`);
     switch (event) {
       case 'endpoint.url_validation': {
         const plainToken = body.payload?.plainToken;

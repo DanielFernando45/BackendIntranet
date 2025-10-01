@@ -69,11 +69,12 @@ export class ContratoService {
 
     return listclientes;
   }
+
   async listarContratosNoAsignados() {
     const contratosNoAsignados = await this.dataSource.query(`
     SELECT 
       a.id as id_asesoramiento,
-      CONCAT(c.nombre, ' ', c.apellido) as delegado,
+      CONCAT(delegado.nombre, ' ', delegado.apellido) as delegado,
       con.fecha_fin as finContrato,
       t.nombre as tipotrabajo,
       ar.nombre as area,
@@ -82,24 +83,34 @@ export class ContratoService {
       cli.id as id_estudiante,
       CONCAT(cli.nombre, ' ', cli.apellido) as estudiante
     FROM asesoramiento a
-    LEFT JOIN procesos_asesoria pr ON a.id = pr.id_asesoramiento AND pr.esDelegado = 1
-    LEFT JOIN cliente c ON pr.id_cliente = c.id
-    LEFT JOIN asesor ase ON pr.id_asesor = ase.id
-    LEFT JOIN area ar ON ase.id_area = ar.id
-    LEFT JOIN contrato con ON a.id = con.id_asesoramiento
-    LEFT JOIN tipo_trabajo t ON con.id_tipoTrabajo = t.id
-    LEFT JOIN cliente cli ON pr.id_cliente = cli.id
+    -- Join para traer al delegado
+    LEFT JOIN procesos_asesoria prDelegado 
+      ON a.id = prDelegado.id_asesoramiento 
+      AND prDelegado.esDelegado = 1
+    LEFT JOIN cliente delegado 
+      ON prDelegado.id_cliente = delegado.id
+    LEFT JOIN asesor ase 
+      ON prDelegado.id_asesor = ase.id
+    LEFT JOIN area ar 
+      ON ase.id_area = ar.id
+    LEFT JOIN contrato con 
+      ON a.id = con.id_asesoramiento
+    LEFT JOIN tipo_trabajo t 
+      ON con.id_tipoTrabajo = t.id
+    -- Join para traer todos los estudiantes
+    LEFT JOIN procesos_asesoria prEstudiantes 
+      ON a.id = prEstudiantes.id_asesoramiento
+    LEFT JOIN cliente cli 
+      ON prEstudiantes.id_cliente = cli.id
     WHERE a.estado = 'activo' AND con.id_asesoramiento IS NULL
   `);
 
-    // Crear la lista final con la estructura correcta
+    // Agrupamos resultados por id_asesoramiento
     const contratos = contratosNoAsignados.reduce((result, contrato) => {
-      // Verificamos si ya existe un objeto para el asesoramiento
       let asesoramiento = result.find(
         (item) => item.id_asesoramiento === contrato.id_asesoramiento,
       );
 
-      // Si no existe, inicializamos un objeto nuevo para ese asesoramiento
       if (!asesoramiento) {
         asesoramiento = {
           id_asesoramiento: contrato.id_asesoramiento,
@@ -109,12 +120,12 @@ export class ContratoService {
           area: contrato.area,
           asesor: contrato.asesor,
           estado: contrato.estado,
-          cliente: [], // Inicializamos un array vacío de clientes
+          cliente: [],
         };
-        result.push(asesoramiento); // Agregamos el nuevo objeto de asesoramiento al resultado
+        result.push(asesoramiento);
       }
 
-      // Si el cliente tiene información, lo agregamos a la lista de clientes de ese asesoramiento
+      // Agregar estudiantes si existen
       if (contrato.estudiante) {
         asesoramiento.cliente.push({
           id_estudiante: contrato.id_estudiante,
@@ -122,10 +133,10 @@ export class ContratoService {
         });
       }
 
-      return result; // Devolvemos el array de contratos agrupados
-    }, []); // Usamos un array vacío como acumulador
+      return result;
+    }, []);
 
-    return contratos; // Retornamos la lista de contratos con todos los clientes agrupados
+    return contratos;
   }
 
   // contratoDelAsesoramiento
@@ -199,7 +210,42 @@ export class ContratoService {
     });
     if (!contrato) throw new NotFoundException('Contrato no encontrado');
 
-    // Actualizar campos si vienen en el DTO
+    // 👇 Verificar pagos confirmados
+    const pagosConfirmados = await this.dataSource.query(
+      `
+  SELECT COUNT(*) AS pagos_confirmados
+  FROM contrato con
+    INNER JOIN asesoramiento a ON a.id = con.id_asesoramiento
+    LEFT JOIN informacion_pagos ip ON ip.id_asesoramiento = a.id
+    LEFT JOIN pago pg ON pg.id_informacion_pago = ip.id
+  WHERE con.id = ? AND pg.estado_pago = 1
+  `,
+      [idContrato],
+    );
+
+    const tienePagosConfirmados = pagosConfirmados[0].pagos_confirmados > 0;
+
+    // ✅ Validar tipo de pago
+    if (dto.idTipoPago) {
+      if (tienePagosConfirmados) {
+        // Si ya tiene pagos confirmados y quieren cambiar el tipo
+        if (dto.idTipoPago !== contrato.tipoPago.id) {
+          throw new BadRequestException(
+            'No se puede cambiar el tipo de pago porque ya existen pagos confirmados',
+          );
+        }
+        // Si el tipo es el mismo, dejar pasar (no hace nada)
+      } else {
+        // Si no tiene pagos confirmados, actualizar libremente
+        const tipoPago = await this.tipoPagoRepo.findOne({
+          where: { id: dto.idTipoPago },
+        });
+        if (!tipoPago) throw new NotFoundException('TipoPago no encontrado');
+        contrato.tipoPago = tipoPago;
+      }
+    }
+
+    // Actualizar otros campos
     if (dto.servicio) contrato.servicio = dto.servicio;
     if (dto.modalidad) contrato.modalidad = dto.modalidad;
 
@@ -212,14 +258,6 @@ export class ContratoService {
       contrato.tipoTrabajo = tipoTrabajo;
     }
 
-    if (dto.idTipoPago) {
-      const tipoPago = await this.tipoPagoRepo.findOne({
-        where: { id: dto.idTipoPago },
-      });
-      if (!tipoPago) throw new NotFoundException('TipoPago no encontrado');
-      contrato.tipoPago = tipoPago;
-    }
-
     if (dto.idCategoria) {
       const categoria = await this.categoriaRepo.findOne({
         where: { id: dto.idCategoria },
@@ -228,7 +266,6 @@ export class ContratoService {
       contrato.categoria = categoria;
     }
 
-    // Actualizar fechas si vienen
     if (dto.fechaInicio) contrato.fecha_inicio = new Date(dto.fechaInicio);
     if (dto.fechaFin) contrato.fecha_fin = new Date(dto.fechaFin);
 

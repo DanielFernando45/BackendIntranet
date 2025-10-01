@@ -1,25 +1,26 @@
-import { IsDateString, IsEnum, IsNotEmpty, IsString } from "class-validator";
-import { Estado_Asesoria } from "src/asesoramiento/entities/asesoramiento.entity";
+import { IsDateString, IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { Estado_Asesoria } from 'src/asesoramiento/entities/asesoramiento.entity';
 
-export class listFinished{
-    @IsNotEmpty()
-    @IsString()
-    titulo:string;
+export class listFinished {
 
-    @IsNotEmpty()
-    @IsDateString()
-    fecha_entregado:Date;
 
-    @IsNotEmpty()
-    @IsDateString()
-    fecha_proceso:Date;
+  @IsString()
+  @IsNotEmpty()
+  titulo_asesor: string;
 
-    @IsNotEmpty()
-    @IsDateString()
-    fecha_terminado:Date;
+  @IsNotEmpty()
+  @IsDateString()
+  fecha_entregado: Date;
 
-    @IsEnum(Estado_Asesoria)
-    @IsNotEmpty()
-    estado:string;
+  @IsNotEmpty()
+  @IsDateString()
+  fecha_proceso: Date;
 
+  @IsNotEmpty()
+  @IsDateString()
+  fecha_terminado: Date;
+
+  @IsEnum(Estado_Asesoria)
+  @IsNotEmpty()
+  estado: string;
 }

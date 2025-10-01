@@ -546,49 +546,58 @@ export class AsesoramientoService {
       await queryRunner.release();
     }
   }
+
   async listarAsignadosPorSupervisor(idSupervisor: string) {
-    // 1) Traer asesoramientos activos ligados a las áreas del supervisor
     const filas = await this.dataSource.query(
       `
-      SELECT 
-        a.id AS id_asesoramiento,
-        CONCAT(c.nombre, ' ', c.apellido) AS delegado,
-        COALESCE(GROUP_CONCAT(DISTINCT t.nombre SEPARATOR ', '), '—') AS tipotrabajo,
-        ar.nombre AS area,
-        ase.nombre AS asesor,
-        a.estado AS estado
-      FROM asesoramiento a
-        LEFT JOIN procesos_asesoria pr 
-          ON a.id = pr.id_asesoramiento AND pr.esDelegado = 1
-        LEFT JOIN cliente c 
-          ON pr.id_cliente = c.id
-        LEFT JOIN asesor ase 
-          ON pr.id_asesor = ase.id
-        LEFT JOIN area ar 
-          ON ase.id_area = ar.id
-        LEFT JOIN contrato con 
-          ON a.id = con.id_asesoramiento
-        LEFT JOIN tipo_trabajo t 
-          ON con.id_tipoTrabajo = t.id
-      WHERE 
-        a.estado = 'activo'
-        AND ar.id_supervisor = ?   -- filtra por supervisor
-      GROUP BY 
-        a.id, c.nombre, c.apellido, ar.nombre, ase.nombre, a.estado
-      ORDER BY a.id DESC
-      `,
+    SELECT 
+      a.id AS id_asesoramiento,
+      a.profesion_asesoria AS profesion_asesoria,
+      CONCAT(c.nombre, ' ', c.apellido) AS delegado,
+      COALESCE(GROUP_CONCAT(DISTINCT t.nombre SEPARATOR ', '), '—') AS tipotrabajo,
+      ar.id AS id_area,                 -- 👈 devolvemos el id del área
+      ar.nombre AS area,
+      ase.id AS id_asesor,              -- 👈 devolvemos también el id del asesor actual
+      ase.nombre AS asesor,
+      a.estado AS estado,
+      pr.id_cliente AS id_delegado
+    FROM asesoramiento a
+      LEFT JOIN procesos_asesoria pr 
+        ON a.id = pr.id_asesoramiento AND pr.esDelegado = 1
+      LEFT JOIN cliente c 
+        ON pr.id_cliente = c.id
+      LEFT JOIN asesor ase 
+        ON pr.id_asesor = ase.id
+      LEFT JOIN area ar 
+        ON ase.id_area = ar.id
+      LEFT JOIN contrato con 
+        ON a.id = con.id_asesoramiento
+      LEFT JOIN tipo_trabajo t 
+        ON con.id_tipoTrabajo = t.id
+    WHERE 
+      a.estado = 'activo'
+      AND ar.id_supervisor = ?
+    GROUP BY 
+      a.id, a.profesion_asesoria, c.nombre, c.apellido, ar.id, ar.nombre,
+      ase.id, ase.nombre, a.estado, pr.id_cliente
+    ORDER BY a.id DESC
+    `,
       [idSupervisor],
     );
 
-    // 2) Adjuntar clientes por asesoramiento
     const conClientes = await Promise.all(
       (filas as any[]).map(async (asesoria) => {
-        const cliente = await this.clienteService.listAllByAsesoramiento(
+        const clientes = await this.clienteService.listAllByAsesoramiento(
           asesoria.id_asesoramiento,
         );
+
+        const clientesSinDelegado = (clientes || []).filter(
+          (cl) => cl.id_estudiante !== asesoria.id_delegado,
+        );
+
         return {
           ...asesoria,
-          cliente: cliente || [],
+          clientes: clientesSinDelegado,
         };
       }),
     );
@@ -601,8 +610,12 @@ export class AsesoramientoService {
       `
     SELECT 
       a.id AS asesoramientoId,
-      a.profesion_asesoria AS profesionAsesoria,
+      a.profesion_asesoria,         -- 👈 dejamos el mismo nombre de BD
+      a.estado,                     -- 👈 añadimos estado
+      s.id AS id_asesor,             
       s.nombre AS asesor,
+      ar.id AS id_area,              
+      ar.nombre AS area,
       JSON_ARRAYAGG(
         JSON_OBJECT(
           'id', c.id,
@@ -610,16 +623,17 @@ export class AsesoramientoService {
           'esDelegado', p.esDelegado,
           'fecha_creacion', c.fecha_creacion,
           'carrera', c.carrera,
-          'gradoAcademico', ga.nombre  -- <-- del catálogo grado_academico
+          'gradoAcademico', ga.nombre
         )
       ) AS clientesAsignados
     FROM asesoramiento a
     INNER JOIN procesos_asesoria p ON p.id_asesoramiento = a.id
     INNER JOIN asesor s ON s.id = p.id_asesor
+    INNER JOIN area ar ON s.id_area = ar.id
     INNER JOIN cliente c ON c.id = p.id_cliente
     LEFT JOIN grado_academico ga ON ga.id = c.id_grado_academico
     WHERE a.id = ?
-    GROUP BY a.id, a.profesion_asesoria, s.nombre
+    GROUP BY a.id, a.profesion_asesoria, a.estado, s.id, s.nombre, ar.id, ar.nombre
     `,
       [asesoramientoId],
     );
@@ -628,18 +642,16 @@ export class AsesoramientoService {
       throw new Error('Asesoramiento no encontrado.');
     }
 
-    // Si MySQL devuelve string, parsea; si ya es objeto, úsalo directo
+    // Parsear clientes
     let clientes = asesoramiento.clientesAsignados;
     if (typeof clientes === 'string') {
       clientes = JSON.parse(clientes);
     }
 
     const clientesNormalizados = (clientes ?? []).map((c: any) => {
-      // Normaliza boolean
       const esDelegado =
         c.esDelegado === true || c.esDelegado === 1 || c.esDelegado === '1';
 
-      // Normaliza fecha a ISO si es parseable
       let fechaISO: string | null = null;
       if (c.fecha_creacion != null) {
         const d = new Date(c.fecha_creacion);
@@ -652,16 +664,20 @@ export class AsesoramientoService {
         id: c.id,
         nombre: c.nombre,
         esDelegado,
-        fecha_creacion: fechaISO, // ej. "2025-09-17T21:48:52.279Z"
+        fecha_creacion: fechaISO,
         carrera: c.carrera,
-        gradoAcademico: c.gradoAcademico ?? null, // ej. "Estudiante Pregrado"
+        gradoAcademico: c.gradoAcademico ?? null,
       };
     });
 
     return {
       asesoramientoId: asesoramiento.asesoramientoId,
+      profesion_asesoria: asesoramiento.profesion_asesoria, // 👈 igual que en tabla
+      estado: asesoramiento.estado, // 👈 igual que en tabla
+      id_area: asesoramiento.id_area,
+      area: asesoramiento.area,
+      id_asesor: asesoramiento.id_asesor,
       asesor: asesoramiento.asesor,
-      profesionAsesoria: asesoramiento.profesionAsesoria,
       clientesAsignados: clientesNormalizados,
     };
   }
@@ -697,13 +713,17 @@ export class AsesoramientoService {
   async listarContratosAsignados() {
     const listar = await this.dataSource.query(`
     SELECT 
-      a.id AS id_asesoramiento,              -- ✅ ID del asesoramiento
-      con.id AS id_contrato,                 -- Contrato
-      t.nombre AS trabajo_investigacion,     -- Tipo de trabajo
-      CONCAT(c.nombre, ' ', c.apellido) AS delegado,
-      con.fecha_inicio AS fecha_inicio,      -- Fecha de inicio del contrato
-      con.fecha_fin AS fecha_fin,            -- Fecha de fin del contrato
+      a.id AS id_asesoramiento,              
+      con.id AS id_contrato,                 
+      con.servicio AS servicio,              
       con.modalidad AS modalidad,
+      t.nombre AS trabajo_investigacion,     
+      con.id_tipoTrabajo AS idTipoTrabajo,   -- 👈 ID tipo trabajo
+      con.id_tipoPago AS idTipoPago,         -- 👈 ID tipo pago
+      con.id_categoria AS idCategoria,       -- 👈 ID categoría
+      CONCAT(c.nombre, ' ', c.apellido) AS delegado,
+      con.fecha_inicio AS fecha_inicio,      
+      con.fecha_fin AS fecha_fin,            
       tp.nombre AS tipo_pago
     FROM asesoramiento a
       INNER JOIN contrato con ON a.id = con.id_asesoramiento
@@ -1000,21 +1020,25 @@ export class AsesoramientoService {
     const listAsesorias = await this.asesoramientoRepo
       .createQueryBuilder('asesoramiento')
       .innerJoin('asesoramiento.procesosasesoria', 'pro')
-      .innerJoinAndSelect('asesoramiento.tipoTrabajo', 'tipoTrabajo')
-      .innerJoinAndSelect('pro.asesor', 'asesor')
+      .innerJoin('pro.asesor', 'asesor')
+      .innerJoin('contrato', 'c', 'c.id_asesoramiento = asesoramiento.id')
+      .innerJoin('tipo_trabajo', 'tt', 'tt.id = c.id_tipoTrabajo')
       .select([
         'DISTINCT asesoramiento.id AS id',
         'asesoramiento.profesion_asesoria AS profesion_asesoria',
-        'tipoTrabajo.nombre AS tipotrabajo',
-        'asesoramiento.fecha_inicio AS fecha_inicio',
-        'asesoramiento.fecha_fin AS fecha_fin',
+        'c.fecha_inicio AS fecha_inicio',
+        'tt.nombre AS tipo_trabajo',
+        'c.fecha_fin AS fecha_fin',
+        'c.modalidad AS modalidad',
       ])
       .where('asesor.id= :id', { id })
       .andWhere('asesoramiento.estado= :estado', { estado })
       .getRawMany();
 
     if (listAsesorias.length === 0)
-      throw new NotFoundException('No presenta asesorias');
+    {
+      return []
+    }
 
     const responseAsesorias = await Promise.all(
       listAsesorias.map(async (asesoria) => {
@@ -1022,11 +1046,11 @@ export class AsesoramientoService {
         return {
           id: asesoria.id,
           delegado: delegado.nombre_delegado,
+          tipo_trabajo: asesoria.tipo_trabajo,
+          modalidad: asesoria.modalidad,
           profesion_asesoria: asesoria.profesion_asesoria,
-          tipo_trabajo: asesoria.tipotrabajo,
           fecha_inicio: asesoria.fecha_inicio,
           fecha_fin: asesoria.fecha_fin,
-          especialidad: asesoria.especialidad,
         };
       }),
     );

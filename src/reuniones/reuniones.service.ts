@@ -33,7 +33,7 @@ export class ReunionesService {
 
     @InjectRepository(Reunion)
     private reunionRepo: Repository<Reunion>,
-  ) { }
+  ) {}
 
   async addReunion(createReunionDto: CreateReunionDto) {
     if (
@@ -157,12 +157,7 @@ export class ReunionesService {
         'zoom_password',
       ],
     });
-    if (enEspera.length === 0)
-      throw new NotFoundException(
-        'No se encontro reuniones para ese asesoramiento',
-      );
-
-    return enEspera;
+    return enEspera.length > 0 ? enEspera : [];
   }
 
   async listTerminados(id: number) {
@@ -177,10 +172,7 @@ export class ReunionesService {
       ],
     });
 
-    if (terminados.length === 0)
-      throw new NotFoundException('No se encontro reuniones terminadas');
-
-    return terminados;
+    return terminados.length > 0 ? terminados : [];
   }
 
   async listReunionesByAsesor(id: number, estado: Estado_reunion) {
@@ -313,8 +305,9 @@ export class ReunionesService {
 
     // Primero eliminamos en Zoom
 
-    const credenciales =
-      await this.asesorService.getCredentialsBySector(id_asesor[0].id_asesor);
+    const credenciales = await this.asesorService.getCredentialsBySector(
+      id_asesor[0].id_asesor,
+    );
 
     if (!reunion) throw new NotFoundException('No se encontro la reunion');
     const token = await this.zoomAuthService.getAccessToken(
@@ -345,7 +338,6 @@ export class ReunionesService {
       `🧹 Reunión ${reunion?.id} (Zoom ID: ${meetingId}) eliminada local y remotamente.`,
     );
     return 'Se elimino correctamente';
-
   }
 
   async proximasReunionesPorFecha(id: number, filter: GetReunionFilterDto) {
@@ -363,20 +355,22 @@ export class ReunionesService {
         're.enlace_video AS enlace_video',
         're.video_password AS video_password',
         're.meetingId as meetingId',
-        'CONCAT(asesor.nombre, " ", asesor.apellido ) AS asesor'
+        'CONCAT(asesor.nombre, " ", asesor.apellido ) AS asesor',
       ])
       .where('asesor.id= :id', { id })
       .andWhere('re.estado = :estado', { estado: 'espera' });
 
-      if (filter?.fecha_reunion != null) {
-        console.log('hay fecha');
-        queryBuilder = queryBuilder.andWhere('DATE(re.fecha_reunion) = :fecha', {
-          fecha: filter.fecha_reunion,
-        });
-      } else {
+    if (filter?.fecha_reunion != null) {
+      console.log('hay fecha');
+      queryBuilder = queryBuilder.andWhere('DATE(re.fecha_reunion) = :fecha', {
+        fecha: filter.fecha_reunion,
+      });
+    } else {
       console.log('no hay fecha');
       // Si no viene fecha, usar fecha actual
-      queryBuilder = queryBuilder.andWhere('DATE(re.fecha_reunion) = CURDATE()');
+      queryBuilder = queryBuilder.andWhere(
+        'DATE(re.fecha_reunion) = CURDATE()',
+      );
     }
 
     const result = await queryBuilder.getRawMany();
