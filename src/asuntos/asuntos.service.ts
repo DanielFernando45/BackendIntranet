@@ -276,9 +276,9 @@ export class AsuntosService {
       ])
       .orderBy('asun.fecha_entregado', 'ASC')
       .getRawMany();
-
+      
     if (!listAll || listAll.length === 0) {
-      throw new NotFoundException('No se encontro');
+      return [];
     }
 
     let idUsados: string[] = [];
