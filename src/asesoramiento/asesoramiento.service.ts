@@ -1036,7 +1036,9 @@ export class AsesoramientoService {
       .getRawMany();
 
     if (listAsesorias.length === 0)
-      throw new NotFoundException('No presenta asesorias');
+    {
+      return []
+    }
 
     const responseAsesorias = await Promise.all(
       listAsesorias.map(async (asesoria) => {

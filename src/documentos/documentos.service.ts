@@ -80,7 +80,6 @@ export class DocumentosService {
       );
     }
   }
-
   async findDocuments(id: number, subido_por: Subido) {
     const listDocuments = await this.documentoRepo
       .createQueryBuilder('d')
@@ -103,8 +102,10 @@ export class DocumentosService {
       .addOrderBy('d.created_at', 'ASC')
       .getRawMany();
 
-    if (listDocuments.length === 0)
-      throw new NotFoundException('No se encontro el documento');
+    if (listDocuments.length === 0) {
+      // 👉 Retorna vacío en vez de lanzar error
+      return { mensaje: 'No se encontraron documentos.' };
+    }
 
     const arreglo: asuntoFileDto[] = [];
 
@@ -114,8 +115,6 @@ export class DocumentosService {
       );
 
       const idAsunto = document['id_asunto'];
-
-      // ✅ Recuperar ambos títulos
       const asuntoCliente = document['asunto_cliente'];
       const asuntoAsesor = document['asunto_asesor'];
 
@@ -133,11 +132,10 @@ export class DocumentosService {
       } else if (estado === 'entregado') {
         fecha = document['fecha_entregado'];
       } else {
-        fecha = new Date().toISOString(); // Valor por defecto
+        fecha = new Date().toISOString();
       }
 
       if (index === -1) {
-        // Nuevo asunto
         arreglo.push({
           id_asunto: idAsunto,
           estado,

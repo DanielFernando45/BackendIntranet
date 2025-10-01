@@ -234,11 +234,10 @@ export class AsuntosService {
         'estado',
       ],
     });
-
-    console.log(listFinished);
-
-    if (!listFinished || listFinished.length === 0)
-      throw new NotFoundException('No hay asuntos terminados.');
+    // ✅ Si no hay datos, retornamos un array vacío
+    if (!listFinished || listFinished.length === 0) {
+      return [];
+    }
 
     // Mapeo de la respuesta
     const response: listFinished[] = listFinished.map((asunto) => {
@@ -637,7 +636,7 @@ export class AsuntosService {
       asunto: await this.asuntoRepo.findOne({ where: { id } }),
     };
   }
-  
+
   async eliminarAsunto(id: string) {
     const asunto = await this.asuntoRepo.findOne({ where: { id } });
 
