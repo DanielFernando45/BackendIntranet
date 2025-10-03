@@ -18,10 +18,20 @@ async function bootstrap() {
 
   // const app = await NestFactory.create(AppModule, { httpsOptions });
   const app = await NestFactory.create(AppModule);
-
   app.enableCors({
-    origin: [`${process.env.FRONT_PORT_ENV}`],
-    credentials: true,
+    origin: [
+      `${process.env.FRONT_PORT_ENV}`,
+      'https://intranet.alejandriaconsultora.com',
+      'http://localhost:5174',
+      'http://137.184.97.175:3001',
+      'http://backend:3000'
+
+    ],
+    methods: 'GET, POST, PUT, DELETE, OPTIONS, PATCH', // Métodos HTTP permitidos
+    allowedHeaders: 'Content-Type, Authorization, X-Requested-With', // Encabezados permitidos
+    credentials: true, // Permitir credenciales como cookies
+    preflightContinue: false, // Deja que NestJS maneje la respuesta de preflight automáticamente
+    optionsSuccessStatus: 204, // Responder con estado 204 para solicitudes preflight
   });
 
   app.useGlobalPipes(
