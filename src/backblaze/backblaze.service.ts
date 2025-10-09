@@ -58,20 +58,14 @@ export class BackbazeService {
     }
   }
 
-  async getSignedUrl(fileName: string, validSeconds = 3600): Promise<string> {
+  async getSignedUrl(fileName: string): Promise<string> {
     await this.ensureAuthorized();
-
-    const authResponse = await this.b2.authorize();
-    const downloadUrl = authResponse.data.downloadUrl;
-
-    const { data } = await this.b2.getDownloadAuthorization({
-      bucketId: this.bucketId,
-      fileNamePrefix: fileName,
-      validDurationInSeconds: validSeconds,
-    });
-
-    const baseUrl = `${downloadUrl}/file/${this.bucketName}/${fileName}`;
-    return `${baseUrl}?Authorization=${data.authorizationToken}`;
+    const auth = await this.b2.authorize();
+    const match = auth.data.downloadUrl.match(
+      /https:\/\/(f\d+)\.backblazeb2\.com/,
+    );
+    const region = match ? match[1] : 'f004';
+    return `https://${region}.backblazeb2.com/file/${this.bucketName}/${fileName}`;
   }
 
   async deleteFile(fileName: string): Promise<boolean> {
