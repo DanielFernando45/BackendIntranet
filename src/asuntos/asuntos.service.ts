@@ -165,11 +165,6 @@ export class AsuntosService {
         throw new NotFoundException('Asunto no encontrado');
       }
 
-      if (validateAsunt.estado !== Estado_asunto.PROCESO) {
-        throw new BadRequestException(
-          'No se puede modificar porque no está en proceso',
-        );
-      }
 
       if (validateAsunt.fecha_revision > fecha_actual) {
         throw new BadRequestException('Las fechas son inválidas');
