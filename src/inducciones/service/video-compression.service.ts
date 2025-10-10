@@ -23,10 +23,12 @@ export class VideoCompressionService {
       await new Promise<void>((resolve, reject) => {
         ffmpeg(filePath)
           .outputOptions([
-            '-vcodec libx264',
-            '-crf 28',
-            '-preset veryfast',
-            '-movflags +faststart',
+            '-vcodec libx264', // Códec universal
+            '-preset ultrafast', // ⚡ el más rápido que existe
+            '-crf 28', // compresión ligera (mantiene calidad razonable)
+            '-movflags +faststart', // streaming progresivo
+            '-threads 2', // evita saturar CPU en Docker
+            '-tune zerolatency', // sin buffers ni optimización de compresión
           ])
           .on('end', () => {
             console.log('✅ Compresión completada:', tempOutput);
