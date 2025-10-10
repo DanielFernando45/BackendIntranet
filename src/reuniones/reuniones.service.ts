@@ -88,40 +88,65 @@ export class ReunionesService {
 
     return 'Se agrego la reunion satisfactoriamente';
   }
-
   async deleteReunion(id: number, id_asesor: number) {
+    // Obtener credenciales del asesor
     const credenciales =
       await this.asesorService.getCredentialsBySector(id_asesor);
+
+    // Buscar reunión en la BD
     const reunion = await this.reunionRepo.findOne({
       where: { id },
       select: ['meetingId'],
     });
-    console.log(reunion);
-    if (!reunion) throw new NotFoundException('No se encontro la reunion');
+
+    if (!reunion) {
+      throw new NotFoundException('No se encontró la reunión');
+    }
+
+    // Si no hay meetingId, solo borrar de la BD
+    if (!reunion.meetingId) {
+      console.warn(
+        `⚠️ Reunión ${id} no tiene meetingId asociado. Se eliminará solo de la BD.`,
+      );
+      await this.reunionRepo.delete({ id });
+      return 'Reunión eliminada localmente (sin Zoom)';
+    }
+
+    // Obtener token de Zoom
     const token = await this.zoomAuthService.getAccessToken(
       credenciales.client_id,
       credenciales.client_secret,
       credenciales.client_account_id,
     );
+
     try {
-      const response = await axios.delete(
+      // Intentar eliminar reunión en Zoom
+      await axios.delete(
         `https://api.zoom.us/v2/meetings/${reunion.meetingId}`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 7000,
         },
       );
     } catch (err) {
-      throw new InternalServerErrorException(
-        `No se pudo eliminar las reunion con meetingId ${reunion.meetingId}`,
+      console.error(
+        '❌ Error al eliminar reunión desde Zoom:',
+        err.response?.data || err.message,
+      );
+      throw new BadRequestException(
+        `No se pudo eliminar la reunión de Zoom (${reunion.meetingId}).`,
       );
     }
-    const deleted = await this.reunionRepo.delete({ id });
-    if (deleted.affected === 0)
-      throw new NotFoundException('No se elimino ningun registro');
 
-    return 'Se elimino correctamente';
+    // Eliminar de la BD
+    const deleted = await this.reunionRepo.delete({ id });
+    if (deleted.affected === 0) {
+      throw new NotFoundException(
+        'No se eliminó ningún registro en la base de datos',
+      );
+    }
+
+    return '✅ Reunión eliminada correctamente';
   }
 
   async handleRecordingCompleted(data: any) {
