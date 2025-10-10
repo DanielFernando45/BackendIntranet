@@ -3,6 +3,8 @@ FROM node:22.14.0-bullseye
 # Establecer directorio de trabajo
 WORKDIR /myapp
 
+RUN apt-get update && apt-get install -y ffmpeg && apt-get clean
+
 # Copiar solo archivos necesarios para instalar dependencias
 COPY package*.json ./
 

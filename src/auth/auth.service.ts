@@ -129,17 +129,46 @@ export class AuthService {
   }
 
   async sendMailPassword(email: string) {
-    const url_codified = this.jwtService.sign(
-      { email },
-      { expiresIn: '15min' },
-    );
-    const url = `http://localhost:5174/cambiarContraseña/${url_codified}`;
+    // Buscar cliente en la base de datos
+    const cliente = await this.clienteRepo.findOne({
+      where: { email },
+      relations: ['usuario'],
+    });
 
-    await this.mailService.sendResetPasswordEmail(email, url);
+    // ✅ Si el correo no pertenece a un clie nte, devolver respuesta genérica
+    // (para evitar ataques de enumeración de correos)
+    if (!cliente || !cliente.usuario) {
+      console.warn(
+        `Intento de recuperación con correo no registrado: ${email}`,
+      );
+      // Devuelve un mensaje específico
+      throw new BadRequestException(
+        'El correo ingresado no pertenece a un cliente registrado',
+      );
+    }
 
-    return {
-      message: 'Si el correo está registrado, se ha enviado un enlace',
-    };
+    // Generar token JWT con vencimiento de 15 minutos
+    const token = this.jwtService.sign({ email }, { expiresIn: '15m' });
+
+    // Leer la URL base del frontend desde las variables de entorno
+    const frontBaseUrl = process.env.FRONT_PORT_ENV;
+
+    // Construir enlace completo para el frontend
+    const resetUrl = `${frontBaseUrl}/cambiarContraseña/${token}`;
+
+    try {
+      // Enviar el correo de restablecimiento
+      await this.mailService.sendResetPasswordEmail(email, resetUrl);
+
+      return {
+        message: 'Si el correo está registrado, se ha enviado un enlace',
+      };
+    } catch (error) {
+      console.error('❌ Error enviando el correo:', error);
+      throw new BadRequestException(
+        'No se pudo enviar el correo, inténtalo más tarde',
+      );
+    }
   }
 
   async recoverPassword(token: string, newPassword: string) {

@@ -10,7 +10,6 @@ import { Repository } from 'typeorm';
 import { Cliente } from 'src/cliente/cliente.entity';
 import { Usuario } from 'src/usuario/usuario.entity';
 import * as bcrypt from 'bcrypt';
-
 @Injectable()
 export class MailService {
   constructor(
@@ -38,7 +37,7 @@ export class MailService {
       <body style="background-color: #f4f4f4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0;">
       <div style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); text-align: center; padding: 40px 30px;">
     
-    <img src="https://pps.whatsapp.net/v/t61.24694-24/491882166_2388883784823910_8174828796251114935_n.jpg?ccb=11-4&oh=01_Q5Aa2AHF6C-u-b3MtOIwO3ITodyZVYe29NL5bRWFag5Ro4uI4g&oe=6883CC12&_nc_sid=5e03e0&_nc_cat=111" alt="Logo de la Empresa" style="max-width: 100px; margin-bottom: 20px;">
+    <img src="https://f004.backblazeb2.com/file/IntranetAlejandria/LogoOscuro.svg" alt="Logo de la Empresa" style="max-width: 100px; margin-bottom: 20px;">
 
     <h1 style="color: #003049; font-size: 24px; margin: 0;">¿Olvidaste tu contraseña?</h1>
     
