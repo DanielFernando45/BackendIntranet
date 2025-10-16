@@ -54,13 +54,9 @@ export class ReunionesService {
 
     // 1. Parsear la fecha (asumiendo que viene en hora local Perú)
     const fechaReunion = new Date(createReunionDto.fecha_reunion);
-    const fechaReunionLuxon = DateTime.fromISO(createReunionDto.fecha_reunion, {
-      zone: 'America/Lima',
-    });
+  
     const horaLima = DateTime.now().setZone('America/Lima');
 
-    if (fechaReunionLuxon <= horaLima)
-      throw new BadRequestException('La hora debe ser despues');
 
     // 3. Crear fecha ISO SIN conversión UTC (Zoom maneja la zona horaria)
     const fechaISO = fechaReunion.toISOString().split('.')[0];

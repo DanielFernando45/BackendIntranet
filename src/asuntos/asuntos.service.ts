@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { CreateAsuntoDto } from './dto/create-asunto.dto';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Asunto, Estado_asunto } from './entities/asunto.entity';
 import { DocumentosService } from 'src/documentos/documentos.service';
 import { Asesoramiento } from 'src/asesoramiento/entities/asesoramiento.entity';
@@ -18,9 +18,12 @@ import { ClienteService } from 'src/cliente/cliente.service';
 import { AsesorService } from '../asesor/asesor.service';
 import { BackbazeService } from 'src/backblaze/backblaze.service';
 import { DIRECTORIOS } from 'src/backblaze/directorios.enum';
+import { Cliente } from 'src/cliente/cliente.entity';
 import { v4 as uuidv4 } from 'uuid';
 import { UpdateAsuntoDto } from './dto/update-asunto.dto';
 import { Documento, Subido } from 'src/documentos/entities/documento.entity';
+import { NotificacionesService } from 'src/notificaciones/notificacion.service';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AsuntosService {
@@ -29,6 +32,8 @@ export class AsuntosService {
     private readonly clienteService: ClienteService,
     private readonly asesorService: AsesorService,
     private readonly backblazeService: BackbazeService,
+    private readonly notificacionesService: NotificacionesService,
+    private readonly mailService: MailService,
 
     @InjectRepository(Asunto)
     private asuntoRepo: Repository<Asunto>,
@@ -38,63 +43,105 @@ export class AsuntosService {
 
     @InjectDataSource()
     private readonly dataSource: DataSource,
+
+    @InjectRepository(Cliente)
+    private readonly clienteRepo: Repository<Cliente>,
   ) {}
-  
+
   async create(
     createAsuntoDto: CreateAsuntoDto,
     files: Express.Multer.File[],
     id_asesoramiento: number,
+    user: any, // 👈 se obtiene de @Req() en el controlador
   ) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const existAsesoramiento = queryRunner.manager.findOne(Asesoramiento, {
-        where: { id: id_asesoramiento },
-      });
-      if (!existAsesoramiento) throw new Error('No existe este asesoramiento');
+      const existAsesoramiento = await queryRunner.manager.findOne(
+        Asesoramiento,
+        {
+          where: { id: id_asesoramiento },
+          relations: [
+            'procesosasesoria',
+            'procesosasesoria.cliente',
+            'procesosasesoria.asesor',
+            'contrato',
+          ],
+        },
+      );
+
+      if (!existAsesoramiento) {
+        throw new NotFoundException('No existe este asesoramiento');
+      }
+
       const newAsunt = queryRunner.manager.create(Asunto, {
         ...createAsuntoDto,
         asesoramiento: { id: id_asesoramiento },
         estado: Estado_asunto.ENTREGADO,
         fecha_entregado: new Date(),
       });
+
       const { id } = await queryRunner.manager.save(newAsunt);
 
-      const listNombres = await Promise.all(
-        files.map(async (file) => {
-          return await this.backblazeService.uploadFile(
-            file,
-            DIRECTORIOS.DOCUMENTOS,
-          );
-        }),
-      );
+      // Subida de archivos y registro
+      if (files && files.length > 0) {
+        const listNombres = await Promise.all(
+          files.map((file) =>
+            this.backblazeService.uploadFile(file, DIRECTORIOS.DOCUMENTOS),
+          ),
+        );
 
-      await Promise.all(
-        listNombres.map(async (nameFile) => {
-          const nombre = nameFile.split('/')[1];
-          const directorio = `${nameFile}`;
-          await this.documentosService.addedDocumentByClient(
-            nombre,
-            directorio,
-            id,
-            queryRunner.manager,
-          );
-        }),
-      );
+        await Promise.all(
+          listNombres.map(async (nameFile) => {
+            const nombre = nameFile.split('/')[1];
+            const directorio = `${nameFile}`;
+            await this.documentosService.addedDocumentByClient(
+              nombre,
+              directorio,
+              id,
+              queryRunner.manager,
+            );
+          }),
+        );
+      }
 
       await queryRunner.commitTransaction();
-      return 'Agregado satisfactoriamente';
+
+      //  Notificación al asesor (único)
+      const contrato = existAsesoramiento.contrato;
+      const procesos = existAsesoramiento.procesosasesoria || [];
+      const asesor = procesos.find((p) => p.asesor)?.asesor;
+
+      //  Buscar el cliente asociado al usuario autenticado
+      const cliente = await this.clienteRepo.findOne({
+        where: { usuario: { id: user.id } },
+      });
+
+      if (asesor && cliente) {
+        console.log('📢 Cliente autenticado (emisor):', cliente.id);
+
+        await this.notificacionesService.notificarAsesor(
+          asesor.id, // receptor (asesor)
+          contrato?.id,
+          `El cliente ha agregado un nuevo avance en el asesoramiento "${existAsesoramiento.profesion_asesoria}".`,
+          'nuevo_avance',
+          { idClienteEmisor: cliente.id }, // ✅ ahora el ID real del cliente, no del usuario
+        );
+      }
+
+      return 'Asunto agregado y notificación enviada al asesor satisfactoriamente';
     } catch (err) {
       await queryRunner.rollbackTransaction();
-      return new InternalServerErrorException(
-        `Se revierten los cambios,se presenta el siguiente error ${err.message}`,
+      throw new InternalServerErrorException(
+        `Se revierten los cambios: ${err.message}`,
       );
     } finally {
       await queryRunner.release();
     }
   }
+
   async EstateToProcess(id: string, body: ChangeToProcess) {
     console.log('📩 Llega desde front (string):', body.fecha_estimada);
 
@@ -159,13 +206,18 @@ export class AsuntosService {
 
       const validateAsunt = await queryRunner.manager.findOne(Asunto, {
         where: { id },
-        select: ['estado', 'fecha_revision'],
+        relations: [
+          'asesoramiento',
+          'asesoramiento.contrato',
+          'asesoramiento.clientes',
+          'asesoramiento.asesores',
+        ],
+        select: ['id', 'estado', 'fecha_revision'],
       });
 
       if (!validateAsunt) {
         throw new NotFoundException('Asunto no encontrado');
       }
-
 
       if (validateAsunt.fecha_revision > fecha_actual) {
         throw new BadRequestException('Las fechas son inválidas');
@@ -182,7 +234,7 @@ export class AsuntosService {
         },
       );
 
-      // ✅ Solo procesa si hay archivos
+      // ✅ Subida de documentos si existen
       if (files && files.length > 0) {
         const listNames = await Promise.all(
           files.map((file) =>
@@ -208,7 +260,47 @@ export class AsuntosService {
       }
 
       await queryRunner.commitTransaction();
-      return 'Asunto terminado satisfactoriamente';
+
+      // 🟢 ⏱️ NOTIFICACIÓN después del commit
+      const asesoramiento = validateAsunt.asesoramiento;
+      const contrato = asesoramiento?.contrato;
+      const idAsesor = asesoramiento?.asesores?.[0]?.id;
+      const nombreAsesor = asesoramiento?.asesores?.[0]?.nombre;
+      const profesion = asesoramiento?.profesion_asesoria;
+
+      if (asesoramiento && contrato && idAsesor) {
+        // 🔔 Notificación interna (persistente y por gateway)
+        await this.notificacionesService.notificarClientesDeAsesoramiento(
+          asesoramiento.id,
+          contrato.id,
+          `El asesor ha enviado un nuevo avance en tu asesoría. Revisa los documentos actualizados en la plataforma.`,
+          'avance_enviado',
+          { idAsesorEmisor: idAsesor },
+        );
+
+        // 📧 Envío de correo a los clientes asociados
+        const clientes = asesoramiento?.clientes || [];
+
+        for (const cliente of clientes) {
+          if (!cliente?.email) continue;
+
+          try {
+            await this.mailService.sendAvanceClienteEmail(
+              cliente.email,
+              nombreAsesor || 'Tu asesor',
+              profesion || 'Tu asesoría',
+            );
+            console.log(`📬 Correo enviado correctamente a ${cliente.email}`);
+          } catch (error) {
+            console.error(
+              `❌ Error enviando correo a ${cliente.email}:`,
+              error.message,
+            );
+          }
+        }
+      }
+
+      return 'Asunto terminado y notificaciones (internas + correo) enviadas correctamente';
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException(err.message || 'Error interno');
@@ -272,7 +364,7 @@ export class AsuntosService {
       ])
       .orderBy('asun.fecha_entregado', 'ASC')
       .getRawMany();
-      
+
     if (!listAll || listAll.length === 0) {
       return [];
     }

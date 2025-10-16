@@ -34,7 +34,7 @@ import { ClienteModule } from 'src/cliente/cliente.module';
       },
     }),
     forwardRef(() => AuthModule),
-    ClienteModule
+    ClienteModule,
   ],
   controllers: [MailController],
   providers: [MailService],

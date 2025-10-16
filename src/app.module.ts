@@ -28,6 +28,7 @@ import { CategoriaModule } from './categoria/categoria.module';
 import { SupervisorModule } from './supervisor/supervisor.module';
 import { AreaModule } from './area/area.module';
 import { RolModule } from './rol/rol.module';
+import { NotificacionesModule } from './notificaciones/notificacion.module';
 
 let puerto: number;
 
@@ -78,6 +79,7 @@ if (process.env.DB_PORT) {
     SupervisorModule,
     AreaModule,
     RolModule,
+    NotificacionesModule
   ],
   controllers: [AppController],
   providers: [AppService],

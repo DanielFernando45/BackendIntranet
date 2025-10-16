@@ -18,6 +18,7 @@ import {
   Put,
   UsePipes,
   ValidationPipe,
+  Req,
 } from '@nestjs/common';
 import { AsuntosService } from './asuntos.service';
 import { CreateAsuntoDto } from './dto/create-asunto.dto';
@@ -49,6 +50,7 @@ export class AsuntosController {
     @UploadedFiles() files: Express.Multer.File[],
     @Body() createAsuntoDto: CreateAsuntoDto,
     @Param('id_asesoramiento', ParseIntPipe) id_asesoramiento: number,
+    @Req() req,
   ) {
     if (!files || files.length === 0)
       throw new BadRequestException('No se ha enviado archivos');
@@ -62,6 +64,7 @@ export class AsuntosController {
         createAsuntoDto,
         files,
         id_asesoramiento,
+        req.user,
       );
       return response;
     } catch (err) {
