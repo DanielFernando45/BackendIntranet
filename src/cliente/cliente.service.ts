@@ -26,11 +26,12 @@ import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesor
 import { ProcesosAsesoriaService } from 'src/procesos_asesoria/procesos_asesoria.service';
 import { Rol } from '../rol/entities/rol.entity'; // Importa la entidad Rol
 import { Contrato } from 'src/contrato/entities/contrato.entity';
-
+import { BackbazeService } from 'src/backblaze/backblaze.service';
 @Injectable()
 export class ClienteService {
   constructor(
     private readonly usuarioService: UsuarioService,
+    private readonly blackService: BackbazeService,
 
     @Inject(forwardRef(() => AsesoramientoService))
     private readonly asesoramientoService: AsesoramientoService,
@@ -388,7 +389,7 @@ export class ClienteService {
   }
 
   async getContratos(idAsesoria: number) {
-    return this.contratoRepo
+    const contrato = await this.contratoRepo
       .createQueryBuilder('contrato')
       .leftJoinAndSelect('contrato.asesoramiento', 'asesoramiento')
       .leftJoinAndSelect('contrato.categoria', 'categoria')
@@ -396,6 +397,28 @@ export class ClienteService {
       .leftJoinAndSelect('contrato.tipoTrabajo', 'tipoTrabajo')
       .where('asesoramiento.id = :idAsesoria', { idAsesoria })
       .getOne();
+
+    if (!contrato) {
+      throw new Error('Contrato no encontrado');
+    }
+
+    // Si el campo documentos contiene una ruta válida, generar la URL firmada
+    if (contrato.documentos) {
+      try {
+        contrato.documentos = await this.blackService.getSignedUrl(
+          contrato.documentos,
+        );
+      } catch (error) {
+        console.error(
+          `Error generando URL firmada para ${contrato.documentos}:`,
+          error,
+        );
+        // Podés dejar el valor original si hay error
+        contrato.documentos = contrato.documentos;
+      }
+    }
+
+    return contrato;
   }
 
   async getDelegado(id_asesoramiento: number) {

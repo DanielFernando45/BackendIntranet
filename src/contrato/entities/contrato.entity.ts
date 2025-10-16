@@ -44,6 +44,9 @@ export class Contrato {
   @JoinColumn({ name: 'id_tipoPago' })
   tipoPago: TipoPago;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  documentos?: string;
+
   @ManyToOne(() => Categoria, { nullable: true }) // Se permite que categoria sea nullable
   @JoinColumn({ name: 'id_categoria' })
   categoria: Categoria | null;

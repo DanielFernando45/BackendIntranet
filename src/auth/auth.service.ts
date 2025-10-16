@@ -72,9 +72,11 @@ export class AuthService {
         's.nombre AS su_nombre',
         'c.id AS id_Cliente',
         'c.nombre AS cli_nombre',
+        'c.apellido AS cli_apellido',
         'a.nombre AS a_nombre',
         'as.id AS id_Asesor',
         'as.nombre AS ase_nombre',
+        'as.apellido AS ase_apellido',
         'ad.id AS id_Admin',
         'ad.nombre AS admin_nombre',
       ])
@@ -88,11 +90,25 @@ export class AuthService {
     const idAsesor = raw?.id_Asesor ?? null;
     const idAdmin = raw?.id_Admin ?? null;
 
+    // 🔍 Función para obtener solo primer nombre y apellido
+    const obtenerNombreCorto = (nombre?: string, apellido?: string) => {
+      const primerNombre = nombre?.split(' ')[0] ?? '';
+      const primerApellido = apellido?.split(' ')[0] ?? '';
+      return [primerNombre, primerApellido].filter(Boolean).join(' ');
+    };
+
+    // ✅ Construir nombre corto según prioridad
     const nombre =
-      raw.ase_nombre ??
-      raw.su_nombre ??
-      raw.cli_nombre ??
-      raw.admin_nombre ??
+      (raw.ase_nombre &&
+        raw.ase_apellido &&
+        obtenerNombreCorto(raw.ase_nombre, raw.ase_apellido)) ||
+      (raw.cli_nombre &&
+        raw.cli_apellido &&
+        obtenerNombreCorto(raw.cli_nombre, raw.cli_apellido)) ||
+      (raw.su_nombre && obtenerNombreCorto(raw.su_nombre, '')) ||
+      (raw.admin_nombre &&
+        raw.admin_apellido &&
+        obtenerNombreCorto(raw.admin_nombre, raw.admin_apellido)) ||
       user.username;
 
     const area = raw?.a_nombre ?? null;
@@ -107,23 +123,20 @@ export class AuthService {
 
     const datos_usuario: any = {
       username: user.username,
-      nombre,
+      nombre, // 👈 Primer nombre y apellido
       role: user.rol,
-      id_usuario: idUsuario, // 👈 lo agregamos aquí
+      id_usuario: idUsuario,
     };
 
     if (idSupervisor) datos_usuario.id_supervisor = idSupervisor;
     if (idCliente) datos_usuario.id_cliente = idCliente;
     if (idAsesor) datos_usuario.id_asesor = idAsesor;
     if (idAdmin) datos_usuario.id_admin = idAdmin;
-
-    if (user.rol.nombre === 'supervisor' && area) {
-      datos_usuario.area = area;
-    }
+    if (user.rol.nombre === 'supervisor' && area) datos_usuario.area = area;
 
     return {
       access_token: this.jwtService.sign(payload),
-      id_usuario: idUsuario, // ← Solo aquí
+      id_usuario: idUsuario,
       datos_usuario,
     };
   }

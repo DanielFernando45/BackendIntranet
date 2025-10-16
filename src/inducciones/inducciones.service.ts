@@ -21,46 +21,26 @@ export class InduccionesService {
   ) {}
 
   async getInduccionesByAsesoria(id: number) {
-    let inducciones = this.induccionesRepo.find({
+    const inducciones = await this.induccionesRepo.find({
       where: { asesoramiento: { id } },
       relations: ['asesoramiento'],
     });
 
-    if (!inducciones) {
+    if (!inducciones || inducciones.length === 0) {
       throw new Error('No se encontraron inducciones para esta asesoría');
     }
 
-    const induccionesWithURl = await Promise.all(
-      (await inducciones).map(async (induccion) => {
-        induccion.url = await this.blackService.getSignedUrl(induccion.url);
-        return induccion;
-      }),
-    );
-    return induccionesWithURl;
+    // ✅ Ya no es necesario firmar o reconstruir la URL
+    return inducciones;
   }
 
-  async createInduccion(
-    file: Express.Multer.File,
-    induccionData: CreateInduccionDto,
-  ) {
-    if (!file) throw new Error('No se ha enviado un archivo');
-
-    const customName = induccionData.titulo.replace(/\s+/g, '-').toLowerCase();
+  async createInduccion(induccionData: CreateInduccionDto) {
     try {
-      // 1. Sube el archivo y obtén la URL
-      const videoUrl = await this.blackService.uploadFile(
-        file,
-        DIRECTORIOS.INDUCCIONES,
-        customName,
-      );
-      console.log(videoUrl);
-      // 2. Crea el registro usando la URL
-
       const newInduccion = this.induccionesRepo.create({
         ...induccionData,
-        url: videoUrl,
         asesoramiento: { id: induccionData.asesoramiento },
       });
+
       return await this.induccionesRepo.save(newInduccion);
     } catch (error) {
       throw new Error('Error al crear la inducción: ' + error.message);
@@ -71,11 +51,19 @@ export class InduccionesService {
     const induccion = await this.induccionesRepo.findOne({ where: { id } });
     if (!induccion) throw new NotFoundException('Inducción no encontrada');
 
-    const videoEliminado = await this.blackService.deleteFile(induccion.url);
-    if (!videoEliminado) {
-      throw new InternalServerErrorException(
-        'No se pudo eliminar el archivo del almacenamiento',
-      );
+    // ✅ Elimina el archivo solo si existe URL
+    if (induccion.url) {
+      try {
+        const videoEliminado = await this.blackService.deleteFile(
+          induccion.url,
+        );
+        if (!videoEliminado) {
+          console.warn(`⚠️ No se pudo eliminar el archivo: ${induccion.url}`);
+        }
+      } catch (error) {
+        console.error('❌ Error al eliminar archivo:', error.message);
+        // No detenemos la eliminación de BD por un fallo de Backblaze
+      }
     }
 
     const deleteResult = await this.induccionesRepo.delete(id);

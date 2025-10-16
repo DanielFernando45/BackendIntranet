@@ -9,6 +9,7 @@ import { TipoPago } from '../common/entidades/tipoPago.entity';
 import { Categoria } from '../categoria/entities/categoria.entity';
 import { Cliente } from 'src/cliente/cliente.entity';
 import { ClienteModule } from 'src/cliente/cliente.module';
+import { BackblazeModule } from 'src/backblaze/backblaze.module';
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import { ClienteModule } from 'src/cliente/cliente.module';
       Categoria,
       Cliente
     ]),
-    ClienteModule
+    ClienteModule,
+    BackblazeModule
   ],
   controllers: [ContratoController],
   providers: [ContratoService],

@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AsesorService } from './asesor.service';
 import { createAsesorDto } from './dto/crear-asesor.dto';
 import { UpdateAsesorDto } from './dto/update-asesor.dto';
@@ -8,53 +19,58 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @Controller('asesor')
 export class AsesorController {
-    constructor(private readonly asesorService:AsesorService){}
-    
-        @Get(':id')
-        async listOne(@Param('id') id:string){
-            const ID:number=parseInt(id)
-            return this.asesorService.listOneAsesor(ID)
-        }
-    
-        @Get()
-        async listAll(){
-            return this.asesorService.listAsesor();
-        }
-    
-        @Post('/add')
-        async create(@Body() body:createAsesorDto){
-            return this.asesorService.crearAsesor(body)
-        }
+  constructor(private readonly asesorService: AsesorService) {}
 
-        @Get('filter/:id_area')
-        async listAsesorPorArea(@Param('id_area',ParseUUIDPipe) id_area: string){
-            return this.asesorService.asesorPorArea(id_area)
-        }
+  @Get(':id')
+  async listOne(@Param('id') id: string) {
+    const ID: number = parseInt(id);
+    return this.asesorService.listOneAsesor(ID);
+  }
 
-        @Patch('/update/:id')
-        async update(@Param('id',ParseIntPipe) id:number,@Body() body:UpdateAsesorDto){
-            return this.asesorService.patchAsesor(id,body)
-        }
+  @Get()
+  async listAll() {
+    return this.asesorService.listAsesor();
+  }
 
-        @Delete('delete/:id')
-        async delete(@Param('id',ParseIntPipe) id:number){
-            return this.asesorService.deleteAsesor(id)
-        }
+  @Post('/add')
+  async create(@Body() body: createAsesorDto) {
+    return this.asesorService.crearAsesor(body);
+  }
 
-        @UseGuards(JwtAuthGuard,RolesGuard)
-        @Roles("admin")
-        @Patch('desactivate/:id')
-        async desactivate(@Param('id',ParseIntPipe) id:number){
-            return this.asesorService.desactivateAsesor(id)
-        }
+  @Get('filter/:id_area')
+  async listAsesorPorArea(@Param('id_area', ParseUUIDPipe) id_area: string) {
+    return this.asesorService.asesorPorArea(id_area);
+  }
 
-        @Get("datosbyAsesoramiento/:id")
-        async getDataByAsesoramiento(@Param('id',ParseIntPipe) id:number){
-            return this.asesorService.getDatosAsesorByAsesoramiento(id)
-        }
+  @Patch('/update/:id')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: UpdateAsesorDto,
+  ) {
+    return this.asesorService.patchAsesor(id, body);
+  }
 
-        @Get("asesoramientosYDelegado/:id_asesor")
-        async getDelegadoyAsesoramiento(@Param('id_asesor',ParseIntPipe) id_asesor:number){
-            return this.asesorService.getAsesoramientoyDelegado(id_asesor)
-        }
+  @Delete('delete/:id')
+  async delete(@Param('id', ParseIntPipe) id: number) {
+    return this.asesorService.deleteAsesor(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Patch('desactivate/:id')
+  async desactivate(@Param('id', ParseIntPipe) id: number) {
+    return this.asesorService.desactivateAsesor(id);
+  }
+
+  @Get('datosbyAsesoramiento/:id')
+  async getDataByAsesoramiento(@Param('id', ParseIntPipe) id: number) {
+    return this.asesorService.getDatosAsesorByAsesoramiento(id);
+  }
+
+  @Get('asesoramientosYDelegado/:id_asesor')
+  async getDelegadoyAsesoramiento(
+    @Param('id_asesor', ParseIntPipe) id_asesor: number,
+  ) {
+    return this.asesorService.getAsesoramientoyDelegado(id_asesor);
+  }
 }

@@ -49,24 +49,23 @@ export class InduccionesController {
     //   console.error('[Controller] Error:', error.message);
     //   res.status(404).json({ message: error.message });
     // }
-    return 
+    return;
   }
 
   @Post('')
-  @UseInterceptors(FileInterceptor('video'))
-  async createInduccion(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() induccionData: CreateInduccionDto,
-  ) {
-    if (!file) throw new BadRequestException('No se ha enviado archivos');
-    const newInduccion = await this.induccionesService.createInduccion(
-      file,
-      induccionData,
-    );
+  async createInduccion(@Body() induccionData: CreateInduccionDto) {
+    // ⚠️ Ya no usas @UseInterceptors ni @UploadedFile()
+    if (!induccionData.url)
+      throw new BadRequestException('Falta la URL del video en Backblaze');
+
+    const newInduccion =
+      await this.induccionesService.createInduccion(induccionData);
+
     if (!newInduccion) {
       throw new Error('Error al crear la inducción');
     }
-    return { message: 'Inducción creada exitosamente' };
+
+    return { message: '✅ Inducción creada exitosamente', newInduccion };
   }
 
   @Delete(':id')
