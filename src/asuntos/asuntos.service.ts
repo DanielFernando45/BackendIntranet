@@ -24,6 +24,8 @@ import { UpdateAsuntoDto } from './dto/update-asunto.dto';
 import { Documento, Subido } from 'src/documentos/entities/documento.entity';
 import { NotificacionesService } from 'src/notificaciones/notificacion.service';
 import { MailService } from 'src/mail/mail.service';
+import { AuditoriaAsesoria } from 'src/auditoria/entities/auditoria-asesoria.entity';
+import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
 
 @Injectable()
 export class AsuntosService {
@@ -35,6 +37,8 @@ export class AsuntosService {
     private readonly notificacionesService: NotificacionesService,
     private readonly mailService: MailService,
 
+    @InjectRepository(AuditoriaAsesoria)
+    private readonly auditoriaRepo: Repository<AuditoriaAsesoria>,
     @InjectRepository(Asunto)
     private asuntoRepo: Repository<Asunto>,
 
@@ -191,7 +195,6 @@ export class AsuntosService {
       );
     }
   }
-
   async finishAsunt(
     id: string,
     cambio_asunto: string,
@@ -259,10 +262,36 @@ export class AsuntosService {
         );
       }
 
+      // 🟢 Registrar evento en auditoría (antes del commit)
+      const asesoramiento = validateAsunt.asesoramiento;
+
+      const procesoDelegado = await queryRunner.manager.findOne(
+        ProcesosAsesoria,
+        {
+          where: {
+            asesoramiento: { id: asesoramiento.id }, // ✅ relación correcta
+            esDelegado: true,
+          },
+          relations: ['asesor'],
+        },
+      );
+
+      if (procesoDelegado) {
+        const auditoria = queryRunner.manager.create(AuditoriaAsesoria, {
+          procesoAsesoria: procesoDelegado,
+          asesor: procesoDelegado.asesor,
+          tipo: 'Archivo',
+          accion: 'Agrego un avance',
+          descripcion: `El asesor finalizó el asunto "${cambio_asunto}" de la asesoría ${asesoramiento.id}.`,
+          detalle: 'Se cargaron los avances y se notificó a los clientes.',
+        });
+
+        await queryRunner.manager.save(AuditoriaAsesoria, auditoria);
+      }
+
       await queryRunner.commitTransaction();
 
-      // 🟢 ⏱️ NOTIFICACIÓN después del commit
-      const asesoramiento = validateAsunt.asesoramiento;
+      // 🟢 Notificación después del commit
       const contrato = asesoramiento?.contrato;
       const idAsesor = asesoramiento?.asesores?.[0]?.id;
       const nombreAsesor = asesoramiento?.asesores?.[0]?.nombre;
@@ -280,10 +309,8 @@ export class AsuntosService {
 
         // 📧 Envío de correo a los clientes asociados
         const clientes = asesoramiento?.clientes || [];
-
         for (const cliente of clientes) {
           if (!cliente?.email) continue;
-
           try {
             await this.mailService.sendAvanceClienteEmail(
               cliente.email,
@@ -300,7 +327,7 @@ export class AsuntosService {
         }
       }
 
-      return 'Asunto terminado y notificaciones (internas + correo) enviadas correctamente';
+      return 'Asunto terminado, auditoría registrada y notificaciones enviadas correctamente';
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException(err.message || 'Error interno');
@@ -557,88 +584,191 @@ export class AsuntosService {
   async updateAsunto(
     id: string,
     updateAsuntoDto: UpdateAsuntoDto,
-    files: Express.Multer.File[],
+    files?: Express.Multer.File[],
   ) {
-    const asunto = await this.asuntoRepo.findOne({ where: { id } });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (!asunto) {
-      throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
-    }
-
-    // Verifica que se esté enviando el título del asesor
-    console.log('Actualizando asunto con datos:', updateAsuntoDto);
-
-    const idsArray = updateAsuntoDto.idsElminar ?? [];
-
-    // 🔴 Eliminar documentos si hay IDs
-    if (idsArray.length > 0) {
-      const documentos = await this.documentoRepo
-        .createQueryBuilder()
-        .where('id IN (:...ids)', { ids: idsArray })
-        .select(['id', 'ruta'])
-        .getRawMany();
-
-      // Eliminar en Backblaze
-      await Promise.all(
-        documentos.map(async (doc: any) => {
-          await this.backblazeService.deleteFile(doc.ruta);
-        }),
-      );
-
-      // Eliminar en BD
-      await this.documentoRepo
-        .createQueryBuilder()
-        .delete()
-        .where('id IN (:...ids)', { ids: idsArray })
-        .execute();
-    }
-
-    // 🟢 Subida de archivos nuevos
-    if (files && files.length > 0) {
-      const listNombres = await Promise.all(
-        files.map(async (file) => {
-          return await this.backblazeService.uploadFile(
-            file,
-            DIRECTORIOS.DOCUMENTOS,
-          );
-        }),
-      );
-
-      await this.documentoRepo
-        .createQueryBuilder()
-        .insert()
-        .into(Documento)
-        .values(
-          listNombres.map((nameFile) => {
-            const nombre = nameFile.split('/')[1];
-            return {
-              nombre,
-              ruta: nameFile,
-              subido_por: updateAsuntoDto.subido_por ?? Subido.ASESOR,
-              created_at: new Date(),
-              asunto: { id },
-            };
-          }),
-        )
-        .execute();
-    }
-
-    // 🟡 Actualizar campos del Asunto
     try {
-      await this.asuntoRepo.update(id, {
-        titulo_asesor: updateAsuntoDto.titulo_asesor, // Asegúrate de que este valor no sea vacío o null
-      });
-    } catch (error) {
-      console.error('Error al actualizar el asunto:', error);
-      throw new InternalServerErrorException('Error al actualizar el asunto');
-    }
+      const fecha_actual = new Date();
 
-    return {
-      statusCode: 200,
-      success: true,
-      asunto: await this.asuntoRepo.findOne({ where: { id } }),
-    };
+      // 🔍 1. Buscar el asunto con sus relaciones principales
+      const asunto = await queryRunner.manager.findOne(Asunto, {
+        where: { id },
+        relations: [
+          'asesoramiento',
+          'asesoramiento.contrato',
+          'asesoramiento.clientes',
+          'asesoramiento.asesores',
+        ],
+      });
+
+      if (!asunto) {
+        throw new NotFoundException(`No se encontró un asunto con el id ${id}`);
+      }
+
+      console.log('🛠️ Actualizando asunto con:', updateAsuntoDto);
+
+      // 🔴 2. Eliminar documentos seleccionados (si los hay)
+      const idsEliminar = updateAsuntoDto.idsElminar ?? [];
+
+      if (idsEliminar.length > 0) {
+        const documentos = await queryRunner.manager
+          .createQueryBuilder(Documento, 'doc')
+          .select(['doc.id', 'doc.ruta'])
+          .where('doc.id IN (:...ids)', { ids: idsEliminar })
+          .getRawMany();
+
+        // Eliminar de Backblaze
+        await Promise.all(
+          documentos.map(async (doc: any) => {
+            try {
+              await this.backblazeService.deleteFile(doc.ruta);
+            } catch (error) {
+              console.warn(
+                `⚠️ Error al eliminar archivo ${doc.ruta}:`,
+                error.message,
+              );
+            }
+          }),
+        );
+
+        // Eliminar en BD
+        await queryRunner.manager
+          .createQueryBuilder()
+          .delete()
+          .from(Documento)
+          .where('id IN (:...ids)', { ids: idsEliminar })
+          .execute();
+      }
+
+      // 🟢 3. Subida de nuevos archivos
+      if (files && files.length > 0) {
+        const rutasSubidas = await Promise.all(
+          files.map(async (file) =>
+            this.backblazeService.uploadFile(file, DIRECTORIOS.DOCUMENTOS),
+          ),
+        );
+
+        await queryRunner.manager
+          .createQueryBuilder()
+          .insert()
+          .into(Documento)
+          .values(
+            rutasSubidas.map((ruta) => ({
+              nombre: ruta.split('/')[1],
+              ruta,
+              subido_por: updateAsuntoDto.subido_por ?? Subido.ASESOR,
+              created_at: fecha_actual,
+              asunto: { id },
+            })),
+          )
+          .execute();
+      }
+
+      // 🟡 4. Actualizar título del asesor en el asunto
+      const nuevoTitulo = updateAsuntoDto.titulo_asesor?.trim();
+      if (!nuevoTitulo) {
+        throw new BadRequestException(
+          'El título del asesor no puede estar vacío',
+        );
+      }
+
+      await queryRunner.manager.update(
+        Asunto,
+        { id },
+        { titulo_asesor: nuevoTitulo },
+      );
+
+      // 🟣 5. Registrar en auditoría (igual que en finishAsunt)
+      const asesoramiento = asunto.asesoramiento;
+      const procesoDelegado = await queryRunner.manager.findOne(
+        ProcesosAsesoria,
+        {
+          where: {
+            asesoramiento: { id: asesoramiento.id },
+            esDelegado: true,
+          },
+          relations: ['asesor'],
+        },
+      );
+
+      if (procesoDelegado) {
+        const auditoria = queryRunner.manager.create(AuditoriaAsesoria, {
+          procesoAsesoria: procesoDelegado,
+          asesor: procesoDelegado.asesor,
+          tipo: 'Archivo',
+          accion: 'Actualizó un asunto',
+          descripcion: `El asesor actualizó el asunto "${nuevoTitulo}" de la asesoría ${asesoramiento.id}.`,
+          detalle:
+            'Se actualizaron los documentos y se notificó a los clientes.',
+        });
+        await queryRunner.manager.save(AuditoriaAsesoria, auditoria);
+      }
+
+      // 🟢 6. Confirmar la transacción
+      await queryRunner.commitTransaction();
+
+      // 🔔 7. Notificar a los clientes (fuera de la transacción)
+      const contrato = asesoramiento.contrato;
+      const idAsesor = asesoramiento.asesores?.[0]?.id;
+      const nombreAsesor = asesoramiento.asesores?.[0]?.nombre;
+      const profesion = asesoramiento.profesion_asesoria;
+
+      if (asesoramiento && contrato && idAsesor) {
+        // Notificación interna (persistente + gateway)
+        await this.notificacionesService.notificarClientesDeAsesoramiento(
+          asesoramiento.id,
+          contrato.id,
+          `El asesor ha actualizado un asunto en tu asesoría. Revisa los documentos recientes en la plataforma.`,
+          'avance_actualizado',
+          { idAsesorEmisor: idAsesor },
+        );
+
+        // Enviar correos electrónicos a los clientes asociados
+        const clientes = asesoramiento.clientes || [];
+        for (const cliente of clientes) {
+          if (!cliente?.email) continue;
+          try {
+            await this.mailService.sendAvanceClienteEmail(
+              cliente.email,
+              nombreAsesor || 'Tu asesor',
+              profesion || 'Tu asesoría',
+            );
+            console.log(`📬 Correo enviado correctamente a ${cliente.email}`);
+          } catch (error) {
+            console.error(
+              `❌ Error enviando correo a ${cliente.email}:`,
+              error.message,
+            );
+          }
+        }
+      }
+
+      // 🟢 8. Retornar respuesta exitosa
+      const asuntoActualizado = await this.asuntoRepo.findOne({
+        where: { id },
+        relations: ['documentos'],
+      });
+
+      return {
+        statusCode: 200,
+        success: true,
+        message: 'Asunto actualizado correctamente y auditoría registrada.',
+        asunto: asuntoActualizado,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      console.error('❌ Error en updateAsunto:', error);
+      throw new InternalServerErrorException(
+        error.message || 'Error interno al actualizar el asunto',
+      );
+    } finally {
+      await queryRunner.release();
+    }
   }
+
   async updateAsuntoEstudiante(
     id: string,
     updateAsuntoDto: UpdateAsuntoDto,

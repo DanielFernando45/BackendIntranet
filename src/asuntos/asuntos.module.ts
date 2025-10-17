@@ -11,16 +11,19 @@ import { BackblazeModule } from 'src/backblaze/backblaze.module';
 import { Documento } from 'src/documentos/entities/documento.entity';
 import { NotificacionesModule } from 'src/notificaciones/notificacion.module';
 import { MailModule } from 'src/mail/mail.module';
+import { AuditoriaModule } from 'src/auditoria/auditoria.module';
+import { AuditoriaAsesoria } from 'src/auditoria/entities/auditoria-asesoria.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Asunto, Documento]),
+    TypeOrmModule.forFeature([Asunto, Documento, AuditoriaAsesoria]),
     DocumentosModule,
     AsesorModule,
     ClienteModule,
     ProcesosAsesoriaModule,
     NotificacionesModule,
     MailModule,
+    AuditoriaModule,
     forwardRef(() => AsuntosModule),
     BackblazeModule,
   ],
