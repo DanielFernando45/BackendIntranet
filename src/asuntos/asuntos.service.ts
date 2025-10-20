@@ -241,7 +241,7 @@ export class AsuntosService {
     try {
       const fecha_actual = new Date();
 
-      // 🔍 Validar existencia del asunto con relaciones reales
+      // 🔍 Validar existencia del asunto con relaciones REALES
       const validateAsunt = await queryRunner.manager.findOne(Asunto, {
         where: { id },
         relations: [
@@ -254,9 +254,7 @@ export class AsuntosService {
         select: ['id', 'estado', 'fecha_revision'],
       });
 
-      if (!validateAsunt) {
-        throw new NotFoundException('Asunto no encontrado');
-      }
+      if (!validateAsunt) throw new NotFoundException('Asunto no encontrado');
 
       if (
         validateAsunt.fecha_revision &&
@@ -265,7 +263,7 @@ export class AsuntosService {
         throw new BadRequestException('Las fechas son inválidas');
       }
 
-      // ✅ Actualizar el asunto
+      // ✅ Actualizar estado y título del asunto
       await queryRunner.manager.update(
         Asunto,
         { id },
@@ -276,18 +274,18 @@ export class AsuntosService {
         },
       );
 
-      // ✅ Subida de documentos
-      if (files && files.length > 0) {
-        const listNames = await Promise.all(
+      // ✅ Subida de documentos (sí esperamos esto)
+      if (files?.length) {
+        const rutasSubidas = await Promise.all(
           files.map((file) =>
             this.backblazeService.uploadFile(file, DIRECTORIOS.DOCUMENTOS),
           ),
         );
 
-        await Promise.all(
-          listNames.map(async (data) => {
-            const nombre = data.split('/')[1];
-            const fileData = { nombreDocumento: nombre, directorio: data };
+        await Promise.allSettled(
+          rutasSubidas.map(async (ruta) => {
+            const nombre = ruta.split('/')[1];
+            const fileData = { nombreDocumento: nombre, directorio: ruta };
             await this.documentosService.finallyDocuments(
               id,
               fileData,
@@ -297,16 +295,12 @@ export class AsuntosService {
         );
       }
 
-      // 🟢 Registrar evento en auditoría (antes del commit)
+      // 🧾 Registrar auditoría mínima
       const asesoramiento = validateAsunt.asesoramiento;
-
       const procesoDelegado = await queryRunner.manager.findOne(
         ProcesosAsesoria,
         {
-          where: {
-            asesoramiento: { id: asesoramiento.id },
-            esDelegado: true,
-          },
+          where: { asesoramiento: { id: asesoramiento.id }, esDelegado: true },
           relations: ['asesor'],
         },
       );
@@ -320,71 +314,85 @@ export class AsuntosService {
           descripcion: `El asesor finalizó el asunto "${cambio_asunto}" en la asesoría ${asesoramiento.id}.`,
           detalle: 'Se cargaron los avances y se notificó a los clientes.',
         });
-
         await queryRunner.manager.save(AuditoriaAsesoria, auditoria);
       }
 
+      // ✅ Confirmar transacción (solo datos críticos)
       await queryRunner.commitTransaction();
 
-      // 🟢 Notificación después del commit
-      const contrato = asesoramiento?.contrato ?? null;
-      const procesos = asesoramiento?.procesosasesoria || [];
-
-      // obtener asesor y clientes reales
-      const asesor = procesos.find((p) => p?.asesor)?.asesor || null;
-      const clientes = procesos
-        .map((p) => p?.cliente)
-        .filter((c) => c && c.email);
-
-      if (asesor && clientes.length > 0) {
-        console.log(
-          `🔔 Enviando notificaciones del asunto ${id} a ${clientes.length} clientes...`,
-        );
-
-        // 📩 Notificación interna
-        try {
-          await this.notificacionesService.notificarClientesDeAsesoramiento(
-            asesoramiento.id,
-            contrato?.id ?? null,
-            `El asesor ${asesor.nombre} ha finalizado el asunto "${cambio_asunto}". Revisa los documentos actualizados en la plataforma.`,
-            'avance_enviado',
-            { idAsesorEmisor: asesor.id },
-          );
-          console.log('✅ Notificación registrada correctamente');
-        } catch (notifErr) {
-          console.error('⚠️ Error al enviar notificación:', notifErr.message);
-        }
-
-        // 📧 Envío de correos
-        for (const cliente of clientes) {
-          try {
-            await this.mailService.sendAvanceClienteEmail(
-              cliente.email,
-              asesor.nombre || 'Tu asesor',
-              asesoramiento.profesion_asesoria || 'Tu asesoría',
-            );
-            console.log(`📬 Correo enviado correctamente a ${cliente.email}`);
-          } catch (error) {
-            console.error(
-              `❌ Error enviando correo a ${cliente.email}:`,
-              error.message,
-            );
-          }
-        }
-      } else {
-        console.warn(
-          '⚠️ No se enviaron notificaciones: faltan datos de asesor o clientes.',
-        );
-      }
-
-      return {
+      // ⚡ Responder inmediatamente al front
+      const respuesta = {
         message:
-          '✅ Asunto terminado, auditoría registrada y notificaciones enviadas correctamente',
+          '✅ Asunto finalizado y documentos subidos. Notificaciones y correos se enviarán en segundo plano.',
       };
+
+      // 🚀 Tareas en background (no bloquean el flujo principal)
+      setImmediate(async () => {
+        try {
+          const contrato = asesoramiento?.contrato ?? null;
+          const procesos = asesoramiento?.procesosasesoria || [];
+          const asesor = procesos.find((p) => p?.asesor)?.asesor || null;
+          const clientes = procesos
+            .map((p) => p?.cliente)
+            .filter((c) => c && c.email);
+
+          if (!asesor || clientes.length === 0) {
+            console.warn(
+              '⚠️ Sin notificaciones: faltan datos de asesor o clientes.',
+            );
+            return;
+          }
+
+          const nombreAsesor = asesor.nombre || 'Tu asesor';
+          const profesion = asesoramiento.profesion_asesoria || 'Tu asesoría';
+          const mensajeNoti = `El asesor ${nombreAsesor} ha finalizado el asunto "${cambio_asunto}". Revisa los documentos actualizados en la plataforma.`;
+
+          // 🧩 Ejecutar procesos en paralelo
+          await Promise.allSettled([
+            // 📩 Notificación interna (persistente + socket)
+            this.notificacionesService
+              .notificarClientesDeAsesoramiento(
+                asesoramiento.id,
+                contrato?.id ?? null,
+                mensajeNoti,
+                'avance_enviado',
+                { idAsesorEmisor: asesor.id },
+              )
+              .then(() =>
+                console.log(
+                  `✅ Notificaciones enviadas a ${clientes.length} clientes.`,
+                ),
+              )
+              .catch((err) =>
+                console.error('⚠️ Error enviando notificaciones:', err.message),
+              ),
+
+            // 📧 Envío de correos (en paralelo)
+            ...clientes.map((cliente) =>
+              this.mailService
+                .sendAvanceClienteEmail(cliente.email, nombreAsesor, profesion)
+                .then(() =>
+                  console.log(
+                    `📬 Correo enviado correctamente a ${cliente.email}`,
+                  ),
+                )
+                .catch((err) =>
+                  console.error(
+                    `❌ Error enviando correo a ${cliente.email}:`,
+                    err.message,
+                  ),
+                ),
+            ),
+          ]);
+        } catch (err) {
+          console.error('⚠️ Error en proceso asíncrono:', err);
+        }
+      });
+
+      return respuesta;
     } catch (err) {
-      if (queryRunner.isTransactionActive) {
+      if (queryRunner.isTransactionActive)
         await queryRunner.rollbackTransaction();
-      }
       console.error('❌ Error en finishAsunt():', err);
       throw new InternalServerErrorException(
         err.message || 'Error interno al finalizar el asunto',
@@ -679,8 +687,8 @@ export class AsuntosService {
           .where('doc.id IN (:...ids)', { ids: idsEliminar })
           .getRawMany();
 
-        // Eliminar de Backblaze
-        await Promise.all(
+        // Eliminar de Backblaze (en paralelo)
+        await Promise.allSettled(
           documentos.map(async (doc: any) => {
             try {
               await this.backblazeService.deleteFile(doc.ruta);
@@ -705,7 +713,7 @@ export class AsuntosService {
       // 🟢 3. Subida de nuevos archivos
       if (files && files.length > 0) {
         const rutasSubidas = await Promise.all(
-          files.map(async (file) =>
+          files.map((file) =>
             this.backblazeService.uploadFile(file, DIRECTORIOS.DOCUMENTOS),
           ),
         );
@@ -726,7 +734,7 @@ export class AsuntosService {
           .execute();
       }
 
-      // 🟡 4. Actualizar título del asesor en el asunto
+      // 🟡 4. Actualizar título del asesor
       const nuevoTitulo = updateAsuntoDto.titulo_asesor?.trim();
       if (!nuevoTitulo) {
         throw new BadRequestException(
@@ -740,7 +748,7 @@ export class AsuntosService {
         { titulo_asesor: nuevoTitulo },
       );
 
-      // 🟣 5. Registrar en auditoría (igual que en finishAsunt)
+      // 🟣 5. Registrar auditoría básica
       const asesoramiento = asunto.asesoramiento;
       const procesoDelegado = await queryRunner.manager.findOne(
         ProcesosAsesoria,
@@ -759,81 +767,92 @@ export class AsuntosService {
           asesor: procesoDelegado.asesor,
           tipo: 'Archivo',
           accion: 'Actualizó un asunto',
-          descripcion: `El asesor actualizó el asunto "${nuevoTitulo}" de la asesoría ${asesoramiento.id}.`,
+          descripcion: `El asesor actualizó el asunto "${nuevoTitulo}" en la asesoría ${asesoramiento.id}.`,
           detalle:
             'Se actualizaron los documentos y se notificó a los clientes.',
         });
         await queryRunner.manager.save(AuditoriaAsesoria, auditoria);
       }
 
-      // 🟢 6. Confirmar la transacción
+      // 🟢 6. Confirmar transacción
       await queryRunner.commitTransaction();
 
-      // 🔔 7. Notificar a los clientes (fuera de la transacción)
-      const contrato = asesoramiento?.contrato ?? null;
-      const procesos = asesoramiento?.procesosasesoria || [];
-
-      const asesor = procesos.find((p) => p?.asesor)?.asesor || null;
-      const clientes = procesos
-        .map((p) => p?.cliente)
-        .filter((c) => c && c.email);
-
-      if (asesor && clientes.length > 0) {
-        console.log(
-          `🔔 Notificando actualización del asunto ${id} a ${clientes.length} clientes...`,
-        );
-
-        try {
-          // 📩 Notificación interna persistente + gateway
-          await this.notificacionesService.notificarClientesDeAsesoramiento(
-            asesoramiento.id,
-            contrato?.id ?? null,
-            `El asesor ${asesor.nombre} ha actualizado el asunto "${nuevoTitulo}". Revisa los documentos recientes en la plataforma.`,
-            'avance_actualizado',
-            { idAsesorEmisor: asesor.id },
-          );
-          console.log('✅ Notificaciones internas registradas correctamente');
-        } catch (notifErr) {
-          console.error('⚠️ Error al enviar notificación:', notifErr.message);
-        }
-
-        // 📧 Envío de correos
-        for (const cliente of clientes) {
-          try {
-            await this.mailService.sendAvanceClienteEmail(
-              cliente.email,
-              asesor.nombre || 'Tu asesor',
-              asesoramiento.profesion_asesoria || 'Tu asesoría',
-            );
-            console.log(`📬 Correo enviado correctamente a ${cliente.email}`);
-          } catch (error) {
-            console.error(
-              `❌ Error enviando correo a ${cliente.email}:`,
-              error.message,
-            );
-          }
-        }
-      } else {
-        console.warn(
-          '⚠️ No se enviaron notificaciones: faltan datos de asesor o clientes.',
-        );
-      }
-
-      // 🟢 8. Retornar respuesta exitosa
-      const asuntoActualizado = await this.asuntoRepo.findOne({
-        where: { id },
-        relations: ['documentos'],
-      });
-
-      return {
+      // ⚡ Responder al instante
+      const respuesta = {
         statusCode: 200,
         success: true,
         message:
-          '✅ Asunto actualizado correctamente, auditoría registrada y notificaciones enviadas.',
-        asunto: asuntoActualizado,
+          '✅ Asunto actualizado correctamente. Las notificaciones y correos se enviarán en segundo plano.',
       };
+
+      // 🚀 7. Procesos pesados en segundo plano
+      setImmediate(async () => {
+        try {
+          const contrato = asesoramiento?.contrato ?? null;
+          const procesos = asesoramiento?.procesosasesoria || [];
+          const asesor = procesos.find((p) => p?.asesor)?.asesor || null;
+          const clientes = procesos
+            .map((p) => p?.cliente)
+            .filter((c) => c && c.email);
+
+          if (!asesor || clientes.length === 0) {
+            console.warn(
+              '⚠️ No se enviaron notificaciones: faltan datos de asesor o clientes.',
+            );
+            return;
+          }
+
+          // 📩 Notificación interna (no bloqueante)
+          this.notificacionesService
+            .notificarClientesDeAsesoramiento(
+              asesoramiento.id,
+              contrato?.id ?? null,
+              `El asesor ${asesor.nombre} ha actualizado el asunto "${nuevoTitulo}". Revisa los documentos recientes en la plataforma.`,
+              'avance_actualizado',
+              { idAsesorEmisor: asesor.id },
+            )
+            .then(() =>
+              console.log('✅ Notificaciones internas enviadas correctamente'),
+            )
+            .catch((err) =>
+              console.error('⚠️ Error enviando notificaciones:', err.message),
+            );
+
+          // 📧 Correos (en paralelo)
+          await Promise.allSettled(
+            clientes.map((cliente) =>
+              this.mailService
+                .sendAvanceClienteEmail(
+                  cliente.email,
+                  asesor.nombre || 'Tu asesor',
+                  asesoramiento.profesion_asesoria || 'Tu asesoría',
+                )
+                .then(() =>
+                  console.log(
+                    `📬 Correo enviado correctamente a ${cliente.email}`,
+                  ),
+                )
+                .catch((err) =>
+                  console.error(
+                    `❌ Error enviando correo a ${cliente.email}:`,
+                    err.message,
+                  ),
+                ),
+            ),
+          );
+        } catch (err) {
+          console.error(
+            '⚠️ Error en proceso asíncrono de notificaciones:',
+            err,
+          );
+        }
+      });
+
+      // 🟢 8. Retornar respuesta rápida al front
+      return respuesta;
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive)
+        await queryRunner.rollbackTransaction();
       console.error('❌ Error en updateAsunto:', error);
       throw new InternalServerErrorException(
         error.message || 'Error interno al actualizar el asunto',
