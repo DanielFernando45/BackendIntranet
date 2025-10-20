@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { AuditoriaAsesoriaService } from './auditoria-asesoria.service';
 import { AuditoriaAsesoria } from './entities/auditoria-asesoria.entity';
 
@@ -11,17 +11,16 @@ export class AuditoriaAsesoriaController {
     return this.servicio.registrarEvento(data);
   }
 
-  @Get('filtrar')
-  async obtenerAuditorias(
-    @Query('idArea') idArea: string,
-    @Query('idAsesor') idAsesor: number,
-    @Query('fecha') fecha: string,
+  @Get('/:idArea/:idAsesor/:idCliente')
+  async obtenerAuditoriasPorCliente(
+    @Param('idArea') idArea: string,
+    @Param('idAsesor', ParseIntPipe) idAsesor: number,
+    @Param('idCliente', ParseIntPipe) idCliente: number,
   ) {
-    const fechaFiltro = new Date(fecha);
-    return this.servicio.obtenerAuditoriasPorFiltros(
+    return this.servicio.obtenerAuditoriasPorCliente(
       idArea,
       idAsesor,
-      fechaFiltro,
+      idCliente,
     );
   }
 }

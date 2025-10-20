@@ -26,6 +26,11 @@ export class AsesorController {
     const ID: number = parseInt(id);
     return this.asesorService.listOneAsesor(ID);
   }
+  
+  @Get(':id/clientes-delegados')
+  async obtenerClientesDelegados(@Param('id') id: number) {
+    return await this.asesorService.listarClientesDelegadosPorAsesor(id);
+  }
 
   @Get()
   async listAll() {

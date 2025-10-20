@@ -52,7 +52,7 @@ export class Asesor {
   @JoinColumn({ name: 'id_area' })
   area: Area;
 
-  @OneToOne(() => Usuario, { cascade: true })
+  @OneToOne(() => Usuario, { cascade: true, eager: true })
   @JoinColumn()
   usuario: Usuario;
 

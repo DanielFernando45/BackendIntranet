@@ -46,6 +46,35 @@ export class AsesorService {
     @InjectRepository(GradoAcademico)
     private gradoAcademicoRepo: Repository<GradoAcademico>,
   ) {}
+  // dentro de AsesorService
+
+  async listarClientesDelegadosPorAsesor(idAsesor: number) {
+    const clientes = await this.dataSource
+      .createQueryBuilder()
+      .select([
+        'c.id AS id',
+        'c.nombre AS nombre',
+        'c.apellido AS apellido',
+        'c.email AS email',
+        'c.telefono AS telefono',
+        'c.universidad AS universidad',
+        'c.carrera AS carrera',
+        'pa.esDelegado AS esDelegado',
+      ])
+      .from('procesos_asesoria', 'pa')
+      .innerJoin('cliente', 'c', 'pa.id_cliente = c.id')
+      .where('pa.id_asesor = :idAsesor', { idAsesor })
+      .andWhere('pa.esDelegado = true')
+      .distinct(true)
+      .getRawMany();
+
+    if (!clientes.length)
+      throw new NotFoundException(
+        'No se encontraron clientes delegados para este asesor',
+      );
+
+    return clientes;
+  }
 
   async listAsesor(): Promise<listarAsesorDto[]> {
     const listofAsesor = await this.asesorRepo.find({
@@ -138,7 +167,7 @@ export class AsesorService {
 
     return await this.asesorRepo.save(asesor);
   }
-  
+
   async patchAsesor(id: number, data: UpdateAsesorDto) {
     if (!Object.keys(data).length) {
       throw new BadRequestException('No hay contenido a actualizar');

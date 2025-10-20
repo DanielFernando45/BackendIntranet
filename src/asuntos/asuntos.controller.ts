@@ -19,6 +19,7 @@ import {
   UsePipes,
   ValidationPipe,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AsuntosService } from './asuntos.service';
 import { CreateAsuntoDto } from './dto/create-asunto.dto';
@@ -36,13 +37,13 @@ import { updateClienteDto } from 'src/cliente/dto/update-cliente.dto';
 export class AsuntosController {
   constructor(private readonly asuntosService: AsuntosService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post('addWithDocument/:id_asesoramiento')
-  @UseGuards(JwtAuthGuard, IsDelegadoGuard)
   @UseInterceptors(
     FilesInterceptor('files', 10, {
       fileFilter,
       limits: {
-        fileSize: 1024 * 1025 * 30,
+        fileSize: 1024 * 1024 * 30, // 30MB
       },
     }),
   )
@@ -52,23 +53,41 @@ export class AsuntosController {
     @Param('id_asesoramiento', ParseIntPipe) id_asesoramiento: number,
     @Req() req,
   ) {
-    if (!files || files.length === 0)
-      throw new BadRequestException('No se ha enviado archivos');
-    try {
-      //   const listaNombresyUrl=files.map((item)=>{
-      //   return {nombreDocumento:item.originalname,secureUrl:`${HOST_API}/files/product/${item.filename}`}
-      // })
-      // console.log(listaNombresyUrl)
+    // 1️⃣ Validar que haya archivos
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No se ha enviado ningún archivo.');
+    }
 
+    // 2️⃣ Verificar que el usuario autenticado esté presente
+    if (!req.user) {
+      throw new UnauthorizedException('Usuario no autenticado.');
+    }
+
+    // 3️⃣ Log de depuración (ver qué llega en el req.user)
+    console.log('🧠 Usuario autenticado en addWithDocument:', req.user);
+
+    try {
+      // 4️⃣ Enviar todo al servicio
       const response = await this.asuntosService.create(
         createAsuntoDto,
         files,
         id_asesoramiento,
         req.user,
       );
-      return response;
+
+      return {
+        statusCode: 201,
+        message: 'Asunto creado correctamente con archivos adjuntos',
+        data: response,
+      };
     } catch (err) {
-      throw new InternalServerErrorException('Error al agregar los archivos');
+      console.error('❌ Error al crear asunto:', err);
+
+      // 5️⃣ Manejo más claro del error
+      throw new InternalServerErrorException({
+        message: 'Error al agregar los archivos',
+        details: err.message,
+      });
     }
   }
 

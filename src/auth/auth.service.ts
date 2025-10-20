@@ -16,12 +16,14 @@ import { UsuarioService } from 'src/usuario/usuario.service';
 import { MailService } from 'src/mail/mail.service';
 import { Supervisor } from 'src/supervisor/entities/supervisor.entity';
 import { Area } from 'src/area/entities/area.entity';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usuarioService: UsuarioService,
     private readonly mailService: MailService,
+    private readonly dataSource: DataSource,
 
     @InjectRepository(Usuario)
     private usuarioRepo: Repository<Usuario>,
@@ -67,6 +69,7 @@ export class AuthService {
       .leftJoin(Cliente, 'c', 'c.usuarioId = u.id')
       .leftJoin(Asesor, 'as', 'as.usuarioId = u.id')
       .leftJoin(Admin, 'ad', 'ad.usuarioId = u.id')
+      // 👇 dejamos los campos originales
       .addSelect([
         's.id AS s_id',
         's.nombre AS su_nombre',
@@ -89,6 +92,20 @@ export class AuthService {
     const idCliente = raw?.id_Cliente ?? null;
     const idAsesor = raw?.id_Asesor ?? null;
     const idAdmin = raw?.id_Admin ?? null;
+
+    // ✅ Si el usuario es cliente, verificamos si tiene proceso de asesoría delegado
+    let esDelegado = false;
+    if (idCliente) {
+      const proceso = await this.dataSource
+        .createQueryBuilder()
+        .select('pa.esDelegado', 'esDelegado')
+        .from('procesos_asesoria', 'pa')
+        .where('pa.id_cliente = :idCliente', { idCliente })
+        .andWhere('pa.esDelegado = true')
+        .getRawOne();
+
+      esDelegado = !!proceso?.esDelegado;
+    }
 
     // 🔍 Función para obtener solo primer nombre y apellido
     const obtenerNombreCorto = (nombre?: string, apellido?: string) => {
@@ -113,19 +130,26 @@ export class AuthService {
 
     const area = raw?.a_nombre ?? null;
 
+    // ✅ Payload del token
     const payload: any = {
       sub: idUsuario,
       username: user.username,
       role: user.rol.nombre,
+      esDelegado, // 👈 agregado aquí
     };
 
     if (idSupervisor) payload.id_supervisor = idSupervisor;
+    if (idCliente) payload.id_cliente = idCliente;
+    if (idAsesor) payload.id_asesor = idAsesor;
+    if (idAdmin) payload.id_admin = idAdmin;
 
+    // ✅ Datos del usuario para la respuesta
     const datos_usuario: any = {
       username: user.username,
-      nombre, // 👈 Primer nombre y apellido
+      nombre,
       role: user.rol,
       id_usuario: idUsuario,
+      esDelegado, // 👈 agregado aquí también
     };
 
     if (idSupervisor) datos_usuario.id_supervisor = idSupervisor;

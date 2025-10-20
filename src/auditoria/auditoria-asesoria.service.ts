@@ -18,10 +18,10 @@ export class AuditoriaAsesoriaService {
     return await this.repo.save(evento);
   }
 
-  async obtenerAuditoriasPorFiltros(
+  async obtenerAuditoriasPorCliente(
     idArea: string,
     idAsesor: number,
-    fecha: Date,
+    idCliente: number,
   ) {
     const auditorias = await this.repo
       .createQueryBuilder('auditoria')
@@ -50,12 +50,12 @@ export class AuditoriaAsesoriaService {
       // Filtros
       .where('asesor.id = :idAsesor', { idAsesor })
       .andWhere('asesor.id_area = :idArea', { idArea })
-      .andWhere('DATE(auditoria.fecha_creacion) = DATE(:fecha)', { fecha })
-      // Selección de campos con agrupación
+      .andWhere('cliente.id = :idCliente', { idCliente }) // ✅ filtrado por cliente
+      // Selección de campos
       .select([
         'cliente.nombre AS cliente',
         'asesoramiento.profesion_asesoria AS asesoría',
-        'area.nombre AS area', // ✅ el nombre del área real
+        'area.nombre AS area',
         'auditoria.tipo AS tipo',
         'auditoria.descripcion AS descripcion',
         'auditoria.accion AS accion',
@@ -64,11 +64,10 @@ export class AuditoriaAsesoriaService {
         'ultimoAsunto.id_asunto AS id_asunto',
         'GROUP_CONCAT(DISTINCT documento.ruta) AS rutas',
       ])
-      // Agrupación
       .groupBy('auditoria.id')
       .addGroupBy('cliente.nombre')
       .addGroupBy('asesoramiento.profesion_asesoria')
-      .addGroupBy('area.nombre') // ✅ incluir para cumplir con ONLY_FULL_GROUP_BY
+      .addGroupBy('area.nombre')
       .addGroupBy('auditoria.tipo')
       .addGroupBy('auditoria.descripcion')
       .addGroupBy('auditoria.accion')
