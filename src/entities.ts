@@ -26,6 +26,8 @@ import { Contrato } from "./contrato/entities/contrato.entity";
 import { Area } from "./area/entities/area.entity";
 import { Supervisor } from "./supervisor/entities/supervisor.entity";
 import { Rol } from "./rol/entities/rol.entity";
+import { Notificacion } from "./notificaciones/entities/notificacion.entity";
+import { AuditoriaAsesoria } from "./auditoria/entities/auditoria-asesoria.entity";
 
 
-export const Entities = [Admin, Asesor, Cliente, Usuario, TipoContrato, TipoPago, TipoTrabajo, AreaAsesor, GradoAcademico, ProcesosAsesoria, Asesoramiento, Documento, Asunto, Reunion, Pago, Informacion_Pagos, Guia, Herramienta, Noticia, Tutorial, Soporte, Solucion, Inducciones, Categoria, Contrato, Area, Supervisor, Rol];
+export const Entities = [Admin, Asesor, Cliente, Usuario, TipoContrato, TipoPago, TipoTrabajo, AreaAsesor, GradoAcademico, ProcesosAsesoria, Asesoramiento, Documento, Asunto, Reunion, Pago, Informacion_Pagos, Guia, Herramienta, Noticia, Tutorial, Soporte, Solucion, Inducciones, Categoria, Contrato, Area, Supervisor, Rol, Notificacion, AuditoriaAsesoria];

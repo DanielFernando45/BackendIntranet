@@ -10,6 +10,7 @@ import { AsesoramientoModule } from 'src/asesoramiento/asesoramiento.module';
 import { Rol } from 'src/rol/entities/rol.entity';
 import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
 import { Contrato } from 'src/contrato/entities/contrato.entity';
+import { BackblazeModule } from 'src/backblaze/backblaze.module';
 
 @Module({
   exports: [ClienteService, TypeOrmModule],
@@ -23,6 +24,7 @@ import { Contrato } from 'src/contrato/entities/contrato.entity';
       Contrato,
     ]),
     UsuarioModule,
+    BackblazeModule,
     forwardRef(() => AsesoramientoModule),
   ],
   controllers: [ClienteController],

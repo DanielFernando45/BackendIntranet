@@ -19,11 +19,12 @@ import { clientesExtraDTO } from 'src/procesos_asesoria/dto/clientes_extra.dto';
 import { ClienteService } from 'src/cliente/cliente.service';
 import { listAsesoramientoYDelegadoDto } from './dto/list-asesoramiento-delegado.dto';
 import { Contrato } from 'src/contrato/entities/contrato.entity';
-
+import { BackbazeService } from 'src/backblaze/backblaze.service';
 @Injectable()
 export class AsesoramientoService {
   constructor(
     private readonly procesosAsesoriaService: ProcesosAsesoriaService,
+    private readonly backblazeService: BackbazeService,
     // private readonly tipoTrabajoService: TipoTrabajoService
 
     @Inject(forwardRef(() => ClienteService))
@@ -711,19 +712,20 @@ export class AsesoramientoService {
     return listContratosSinAsignar;
   }
   async listarContratosAsignados() {
-    const listar = await this.dataSource.query(`
+    const contratos = await this.dataSource.query(`
     SELECT 
       a.id AS id_asesoramiento,              
       con.id AS id_contrato,                 
       con.servicio AS servicio,              
       con.modalidad AS modalidad,
       t.nombre AS trabajo_investigacion,     
-      con.id_tipoTrabajo AS idTipoTrabajo,   -- 👈 ID tipo trabajo
-      con.id_tipoPago AS idTipoPago,         -- 👈 ID tipo pago
-      con.id_categoria AS idCategoria,       -- 👈 ID categoría
+      con.id_tipoTrabajo AS idTipoTrabajo,
+      con.id_tipoPago AS idTipoPago,
+      con.id_categoria AS idCategoria,
       CONCAT(c.nombre, ' ', c.apellido) AS delegado,
-      con.fecha_inicio AS fecha_inicio,      
-      con.fecha_fin AS fecha_fin,            
+      con.fecha_inicio AS fecha_inicio,
+      con.fecha_fin AS fecha_fin,
+      con.documentos AS documentos,
       tp.nombre AS tipo_pago
     FROM asesoramiento a
       INNER JOIN contrato con ON a.id = con.id_asesoramiento
@@ -733,7 +735,22 @@ export class AsesoramientoService {
       INNER JOIN tipo_pago tp ON con.id_tipoPago = tp.id
     WHERE p.esDelegado = true
   `);
-    return listar;
+
+    // Añadir la URL firmada por cada contrato si tiene documento
+    const contratosConUrl = await Promise.all(
+      contratos.map(async (contrato) => {
+        if (contrato.documentos) {
+          contrato.documentoUrl = await this.backblazeService.getSignedUrl(
+            contrato.documentos,
+          );
+        } else {
+          contrato.documentoUrl = null;
+        }
+        return contrato;
+      }),
+    );
+
+    return contratosConUrl;
   }
 
   async listar_segun_fecha(fecha_limite: Date) {
@@ -1035,9 +1052,8 @@ export class AsesoramientoService {
       .andWhere('asesoramiento.estado= :estado', { estado })
       .getRawMany();
 
-    if (listAsesorias.length === 0)
-    {
-      return []
+    if (listAsesorias.length === 0) {
+      return [];
     }
 
     const responseAsesorias = await Promise.all(

@@ -6,15 +6,13 @@ import {
   JoinColumn,
   OneToMany,
   ManyToOne,
+  ManyToMany,
   CreateDateColumn,
 } from 'typeorm';
 import { Usuario } from 'src/usuario/usuario.entity';
-import { TipoContrato } from 'src/common/entidades/tipoContrato.entity';
 import { GradoAcademico } from 'src/common/entidades/gradoAcademico.entity';
-import { TipoTrabajo } from 'src/common/entidades/tipoTrabajo.entity';
 import { Asesoramiento } from 'src/asesoramiento/entities/asesoramiento.entity';
 import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
-import { IsNotEmpty } from 'class-validator';
 
 @Entity()
 export class Cliente {
@@ -43,12 +41,8 @@ export class Cliente {
   pais: string;
 
   @ManyToOne(() => GradoAcademico)
-  @JoinColumn({ name: 'id_grado_academico' }) // nombre de la columna en la tabla Cliente
+  @JoinColumn({ name: 'id_grado_academico' })
   gradoAcademico: GradoAcademico;
-
-  // @ManyToOne(() => TipoTrabajo)
-  // @JoinColumn({ name: 'id_tipo_trabajo' }) // nombre de la columna en la tabla Cliente
-  // tipoTrabajo: TipoTrabajo;
 
   @Column()
   universidad: string;
@@ -59,10 +53,6 @@ export class Cliente {
   @Column()
   carrera: string;
 
-  // @ManyToOne(() => TipoContrato)
-  // @JoinColumn({ name: 'id_contrato' }) // nombre de la columna en la tabla Cliente
-  // tipoContrato: TipoContrato;
-
   @OneToOne(() => Usuario, { cascade: true })
   @JoinColumn()
   usuario: Usuario;
@@ -72,4 +62,8 @@ export class Cliente {
     (procesosAsesoria) => procesosAsesoria.cliente,
   )
   procesosAsesoria: ProcesosAsesoria[];
+
+  // 🔹 Lado inverso de la relación ManyToMany con Asesoramiento
+  @ManyToMany(() => Asesoramiento, (asesoramiento) => asesoramiento.clientes)
+  asesoramientos: Asesoramiento[];
 }

@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cliente } from 'src/cliente/cliente.entity';
 import { Usuario } from 'src/usuario/usuario.entity';
+import { Asesor } from 'src/asesor/asesor.entity';
 import * as bcrypt from 'bcrypt';
 @Injectable()
 export class MailService {
@@ -99,5 +100,33 @@ export class MailService {
     await this.usuarioRepository.save(cliente.usuario);
 
     return { message: 'Contraseña actualizada correctamente' };
+  }
+
+  async sendAvanceClienteEmail(
+    to: string,
+    asesorNombre: string,
+    profesion: string,
+  ) {
+    const mailOptions = {
+      from: `"Intranet Alejandría" <${process.env.GMAIL}>`,
+      to,
+      subject: `Nuevo avance de tu asesor (${asesorNombre})`,
+      html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; border-radius: 8px;">
+        <h2 style="color:#003049;">Nuevo avance en tu asesoría</h2>
+        <p>El asesor <b>${asesorNombre}</b> ha enviado un nuevo avance en tu asesoría <b>"${profesion}"</b>.</p>
+        <p>Puedes revisarlo directamente en tu cuenta de la intranet.</p>
+        <br/>
+        <p style="color:#777;">Atentamente,<br>Equipo Alejandría Consultores</p>
+      </div>
+    `,
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('✉️ Correo enviado al cliente:', info.response);
+    } catch (error) {
+      console.error('❌ Error enviando correo al cliente:', error);
+    }
   }
 }

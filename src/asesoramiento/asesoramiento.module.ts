@@ -7,9 +7,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Asesoramiento } from './entities/asesoramiento.entity';
 import { TipoContrato } from 'src/common/entidades/tipoContrato.entity';
 import { TipoTrabajo } from 'src/common/entidades/tipoTrabajo.entity';
+import { BackblazeModule } from 'src/backblaze/backblaze.module';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([Asesoramiento,TipoContrato,TipoTrabajo]),ProcesosAsesoriaModule,forwardRef(() =>ClienteModule)],
+  imports:[TypeOrmModule.forFeature([Asesoramiento,TipoContrato,TipoTrabajo]),ProcesosAsesoriaModule,forwardRef(() =>ClienteModule),BackblazeModule],
   controllers: [AsesoramientoController],
   providers: [AsesoramientoService],
   exports:[AsesoramientoService]

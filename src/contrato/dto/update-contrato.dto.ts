@@ -1,4 +1,10 @@
-import { IsString, IsNumber, IsUUID, IsOptional, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsUUID,
+  IsOptional,
+  IsDateString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateContratoDto {
@@ -25,10 +31,14 @@ export class UpdateContratoDto {
   idCategoria?: string;
 
   @IsOptional()
+  @IsString()
+  documentos?: string;
+  
+  @IsOptional()
   @IsDateString()
-  fechaInicio?: string;  // ISO string, ej: "2025-09-15T18:30:00.000Z"
+  fechaInicio?: string; // ISO string, ej: "2025-09-15T18:30:00.000Z"
 
   @IsOptional()
   @IsDateString()
-  fechaFin?: string;     // ISO string
+  fechaFin?: string; // ISO string
 }

@@ -28,6 +28,10 @@ export class CreateContratoDto {
   @IsNumber()
   @Type(() => Number)
   idTipoPago: number; // number
+  
+  @IsOptional()
+  @IsString()
+  documentos?: string;
 
   @IsOptional()
   @IsUUID()

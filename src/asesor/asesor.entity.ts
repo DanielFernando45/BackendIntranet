@@ -1,51 +1,69 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne,JoinColumn, ManyToOne, OneToMany } from "typeorm";
-import { Usuario } from "src/usuario/usuario.entity";
-import { GradoAcademico } from "src/common/entidades/gradoAcademico.entity";
-import { ProcesosAsesoria } from "src/procesos_asesoria/entities/procesos_asesoria.entity";
-import { Area } from "src/area/entities/area.entity";
-import { Supervisor } from "src/supervisor/entities/supervisor.entity";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToOne,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  ManyToMany,
+} from 'typeorm';
+import { Usuario } from 'src/usuario/usuario.entity';
+import { GradoAcademico } from 'src/common/entidades/gradoAcademico.entity';
+import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
+import { Area } from 'src/area/entities/area.entity';
+import { Supervisor } from 'src/supervisor/entities/supervisor.entity';
+import { Asesoramiento } from 'src/asesoramiento/entities/asesoramiento.entity';
 
 @Entity()
-export class Asesor{
-    @PrimaryGeneratedColumn()
-    id:number;
-    
-    @Column()
-    dni:string;
-    
-    @Column()
-    nombre:string;
+export class Asesor {
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column()
-    apellido:string;
+  @Column()
+  dni: string;
 
-    @Column()
-    email:string;
+  @Column()
+  nombre: string;
 
-    @Column()
-    telefono:number;
+  @Column()
+  apellido: string;
 
-    @Column()
-    url_imagen:string;
+  @Column()
+  email: string;
 
-    @Column()
-    universidad:string;
+  @Column()
+  telefono: number;
 
-    @Column()
-    especialidad:string;
+  @Column()
+  url_imagen: string;
 
-    @ManyToOne(() => GradoAcademico)
-    @JoinColumn({ name: 'id_grado_academico' }) // nombre de la columna en la tabla Cliente
-    gradoAcademico: GradoAcademico;
-    
-    @ManyToOne(() => Area)
-    @JoinColumn({ name: 'id_area' })
-    area: Area;
+  @Column()
+  universidad: string;
 
-    @OneToOne(()=>Usuario,{cascade:true})
-    @JoinColumn()
-    usuario:Usuario;
+  @Column()
+  especialidad: string;
 
-    @OneToMany(()=>ProcesosAsesoria,procesosAsesoria=>procesosAsesoria.asesor)
-    procesosAsesoria:ProcesosAsesoria[]
+  @ManyToOne(() => GradoAcademico)
+  @JoinColumn({ name: 'id_grado_academico' })
+  gradoAcademico: GradoAcademico;
+
+  @ManyToOne(() => Area)
+  @JoinColumn({ name: 'id_area' })
+  area: Area;
+
+  @OneToOne(() => Usuario, { cascade: true })
+  @JoinColumn()
+  usuario: Usuario;
+
+  // 🔹 Relación 1:N con ProcesosAsesoria
+  @OneToMany(
+    () => ProcesosAsesoria,
+    (procesosAsesoria) => procesosAsesoria.asesor,
+  )
+  procesosAsesoria: ProcesosAsesoria[];
+
+  // 🔹 Relación N:M con Asesoramiento (a través de procesos_asesoria)
+  @ManyToMany(() => Asesoramiento, (asesoramiento) => asesoramiento.asesores)
+  asesoramientos: Asesoramiento[];
 }

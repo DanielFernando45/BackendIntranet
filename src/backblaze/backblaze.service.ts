@@ -96,6 +96,18 @@ export class BackbazeService {
       return false; // Error durante la eliminación
     }
   }
+  async getUploadUrl() {
+    await this.ensureAuthorized();
+
+    const { data } = await this.b2.getUploadUrl({
+      bucketId: this.bucketId,
+    });
+
+    return {
+      uploadUrl: data.uploadUrl,
+      authorizationToken: data.authorizationToken,
+    };
+  }
 
   async downloadFileByName(
     fileName: string,
@@ -147,4 +159,6 @@ export class BackbazeService {
       result.data.files.map((f) => f.fileName),
     );
   }
+
+  
 }
