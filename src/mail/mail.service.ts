@@ -11,10 +11,12 @@ import { Cliente } from 'src/cliente/cliente.entity';
 import { Usuario } from 'src/usuario/usuario.entity';
 import { Asesor } from 'src/asesor/asesor.entity';
 import * as bcrypt from 'bcrypt';
+import { MailerService } from '@nestjs-modules/mailer';
 @Injectable()
 export class MailService {
   constructor(
     private readonly jwtService: JwtService,
+    private readonly mailerService: MailerService,
     @InjectRepository(Cliente)
     private clientRepository: Repository<Cliente>,
     @InjectRepository(Usuario)
@@ -28,6 +30,24 @@ export class MailService {
       pass: process.env.GMAIL_PASSWORD,
     },
   });
+
+  async enviarCorreoPrueba(destino: string) {
+    try {
+      await this.mailerService.sendMail({
+        to: destino,
+        subject: '📬 Prueba de correo desde producción',
+        template: 'test', // archivo: templates/test.hbs
+        context: {
+          nombre: 'Usuario de Prueba',
+        },
+      });
+      console.log('Correo enviado correctamente');
+      return { success: true, message: 'Correo enviado' };
+    } catch (error) {
+      console.error('Error al enviar correo:', error);
+      return { success: false, message: 'Error al enviar correo', error };
+    }
+  }
 
   async sendResetPasswordEmail(to: string, resetUrl: string): Promise<boolean> {
     const mailOptions = {

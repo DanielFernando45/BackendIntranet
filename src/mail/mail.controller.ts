@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { AuthService } from 'src/auth/auth.service';
 
@@ -8,7 +8,12 @@ export class MailController {
     private readonly mailService: MailService,
     private readonly authService: AuthService,
   ) {}
-
+  
+  @Get('test')
+  async enviarPrueba(@Query('to') to: string) {
+    return this.mailService.enviarCorreoPrueba(to);
+  }
+  
   @Post('reset-password')
   async resetPasswordRequest(@Body('email') email: string) {
     await this.authService.sendMailPassword(email);

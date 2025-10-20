@@ -15,24 +15,25 @@ import { ClienteModule } from 'src/cliente/cliente.module';
     TypeOrmModule.forFeature([Usuario]),
     MailerModule.forRoot({
       transport: {
-        host: 'sandbox.smtp.mailtrap.io',
-        port: 2525,
+        service: 'gmail',
         auth: {
-          user: 'f492f209e4c345',
-          pass: '85320c0ea0b09a',
+          user: process.env.GMAIL,
+          pass: process.env.GMAIL_PASSWORD,
         },
       },
       defaults: {
-        from: '"Mi App Dev" <noreply@miapp.com>',
+        from: `"Alejandría" <${process.env.GMAIL}>`,
       },
       template: {
-        dir: join(__dirname, 'templates'),
+        dir: join(process.cwd(), 'src', 'mail', 'templates'),
+
         adapter: new HandlebarsAdapter(),
         options: {
           strict: true,
         },
       },
     }),
+
     forwardRef(() => AuthModule),
     ClienteModule,
   ],
