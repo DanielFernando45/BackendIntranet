@@ -195,7 +195,7 @@ export class AsuntosService {
     );
 
     try {
-      // 🔎 Usamos QueryBuilder en vez de update()
+      // 🔎 Actualizar el estado del asunto a PROCESO
       const result = await this.asuntoRepo
         .createQueryBuilder()
         .update()
@@ -217,10 +217,61 @@ export class AsuntosService {
         estado: Estado_asunto.PROCESO,
       });
 
+      // 🧾 Registrar auditoría del cambio de estado a "PROCESO"
+      try {
+        const asunto = await this.asuntoRepo.findOne({
+          where: { id },
+          relations: [
+            'asesoramiento',
+            'asesoramiento.procesosasesoria',
+            'asesoramiento.procesosasesoria.asesor',
+          ],
+        });
+
+        const asesoramiento = asunto?.asesoramiento;
+        const procesoDelegado = asesoramiento?.procesosasesoria?.find(
+          (p) => p.esDelegado === true,
+        );
+
+        if (procesoDelegado && asunto) {
+          const fechaFormateada = fechaValida.toLocaleDateString('es-PE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          });
+
+          const auditoria = this.auditoriaRepo.create({
+            procesoAsesoria: procesoDelegado,
+            asesor: procesoDelegado.asesor,
+            tipo: 'Cambio de estado',
+            accion: 'El asesor cambió el asunto a PROCESO',
+            descripcion: `El asesor cambió el estado del asunto "${asunto.titulo}" a "En proceso", con fecha estimada para el ${fechaFormateada}.`,
+            detalle:
+              'El cambio fue realizado desde la vista de asuntos del asesor.',
+          });
+
+          await this.auditoriaRepo.save(auditoria);
+          console.log('🧾 Auditoría registrada correctamente');
+        } else {
+          console.warn(
+            '⚠️ No se encontró proceso delegado o asunto para registrar auditoría',
+          );
+        }
+      } catch (err) {
+        console.error('⚠️ Error registrando auditoría:', err.message);
+      }
+
+      // ✅ Respuesta al front
+      const fechaFormateadaFront = fechaValida.toLocaleDateString('es-PE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+
       return {
         status: 200,
         success: true,
-        message: `Se actualizó el asunto ${id}`,
+        message: `Se actualizó el asunto  con fecha estimada ${fechaFormateadaFront}`,
       };
     } catch (err) {
       console.error('❌ Error al actualizar el asunto:', err);
@@ -229,6 +280,7 @@ export class AsuntosService {
       );
     }
   }
+
   async finishAsunt(
     id: string,
     cambio_asunto: string,
@@ -1047,10 +1099,61 @@ export class AsuntosService {
         throw new NotFoundException(`No se encontró el asunto con id: ${id}`);
       }
 
+      // 🧾 Registrar auditoría del cambio de fecha estimada
+      try {
+        const asunto = await this.asuntoRepo.findOne({
+          where: { id },
+          relations: [
+            'asesoramiento',
+            'asesoramiento.procesosasesoria',
+            'asesoramiento.procesosasesoria.asesor',
+          ],
+        });
+
+        const asesoramiento = asunto?.asesoramiento;
+        const procesoDelegado = asesoramiento?.procesosasesoria?.find(
+          (p) => p.esDelegado === true,
+        );
+
+        if (procesoDelegado && asunto) {
+          const fechaFormateada = fechaEstimada.toLocaleDateString('es-PE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          });
+
+          const auditoria = this.auditoriaRepo.create({
+            procesoAsesoria: procesoDelegado,
+            asesor: procesoDelegado.asesor,
+            tipo: 'Actualización de fecha',
+            accion: 'El asesor modificó la fecha estimada',
+            descripcion: `El asesor actualizó la fecha estimada del asunto "${asunto.titulo}" a ${fechaFormateada}.`,
+            detalle:
+              'La modificación se realizó desde la vista de asuntos pendientes del asesor.',
+          });
+
+          await this.auditoriaRepo.save(auditoria);
+          console.log('🧾 Auditoría registrada correctamente');
+        } else {
+          console.warn(
+            '⚠️ No se encontró proceso delegado o asunto para registrar auditoría',
+          );
+        }
+      } catch (err) {
+        console.error('⚠️ Error registrando auditoría:', err.message);
+      }
+
+      // ✅ Respuesta al front
+      const fechaFormateadaFront = fechaEstimada.toLocaleDateString('es-PE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+
       return {
         status: 200,
         success: true,
-        message: `Fecha estimada actualizada correctamente para el asunto ${id}`,
+        message: `Fecha estimada actualizada correctamente para el asunto "${body.titulo || 'sin título'}": ${fechaFormateadaFront}`,
         fecha_estimada: fechaEstimada.toISOString(),
       };
     } catch (err) {
