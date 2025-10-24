@@ -38,6 +38,7 @@ export class ClienteController {
   async listAll() {
     return this.clienteService.listClients();
   }
+
   @Get('filter/all')
   async listAllAsignar() {
     return this.clienteService.listarClientesAsignar();
@@ -60,7 +61,7 @@ export class ClienteController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: updateClienteDto,
   ) {
-    return this.clienteService.patchByClient(id, body);
+    return this.clienteService.updateCliente(id, body);
   }
 
   @Patch('updated_cliente/:id')

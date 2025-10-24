@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Asesor } from './asesor.entity';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Usuario, UserRole } from '../usuario/usuario.entity';
 import { createAsesorDto } from './dto/crear-asesor.dto';
 import * as bcrypt from 'bcrypt';
@@ -45,6 +45,9 @@ export class AsesorService {
 
     @InjectRepository(GradoAcademico)
     private gradoAcademicoRepo: Repository<GradoAcademico>,
+
+    @InjectRepository(Usuario)
+    private usuarioRepo: Repository<Usuario>,
   ) {}
   // dentro de AsesorService
 
@@ -167,26 +170,76 @@ export class AsesorService {
 
     return await this.asesorRepo.save(asesor);
   }
-
   async patchAsesor(id: number, data: UpdateAsesorDto) {
+    // 1. Verificamos si se enviaron datos para actualizar
     if (!Object.keys(data).length) {
       throw new BadRequestException('No hay contenido a actualizar');
     }
-    const partialEntity: any = { ...data };
-    console.log(partialEntity);
+
+    // 2. Buscamos el asesor por su id, incluyendo la relación con 'usuario'
+    const asesor = await this.asesorRepo.findOne({
+      where: { id },
+      relations: ['usuario', 'area', 'gradoAcademico'], // Aseguramos que las relaciones estén disponibles
+    });
+
+    if (!asesor) {
+      throw new NotFoundException('Asesor no encontrado');
+    }
+
+    // 3. Actualizamos solo los campos proporcionados en el cuerpo de la solicitud
+    Object.assign(asesor, data); // Asignamos los datos enviados en 'data'
+    await this.asesorRepo.save(asesor); // Guardamos el asesor actualizado
+
+    // 4. Si se proporcionaron datos para actualizar las relaciones (area, gradoAcademico)
+
+    // Si se proporcionó un nuevo "area", lo asignamos como relación
     if (data.area) {
-      partialEntity.area = { id: data.area };
+      const areaId = data.area; // Convertimos el id a número
+      const area = await this.areaRepo.findOne({ where: { id: areaId } }); // Buscamos la entidad completa
+      if (area) {
+        asesor.area = area; // Asignamos la entidad completa de 'area'
+      } else {
+        throw new NotFoundException('Área no encontrada');
+      }
     }
+
+    // Si se proporcionó un nuevo "gradoAcademico", lo asignamos como relación
     if (data.gradoAcademico) {
-      partialEntity.gradoAcademico = { id: data.gradoAcademico };
+      const gradoAcademicoId = Number(data.gradoAcademico); // Convertimos el id a número
+      const gradoAcademico = await this.gradoAcademicoRepo.findOne({
+        where: { id: gradoAcademicoId },
+      });
+      if (gradoAcademico) {
+        asesor.gradoAcademico = gradoAcademico; // Asignamos la entidad completa de 'gradoAcademico'
+      } else {
+        throw new NotFoundException('Grado académico no encontrado');
+      }
     }
-    const updatedAsesor = await this.asesorRepo.update({ id }, partialEntity);
 
-    if (updatedAsesor.affected === 0)
-      throw new NotFoundException('No se encuentra ese ID');
-    return updatedAsesor;
+    // Guardamos el asesor con las relaciones actualizadas
+    await this.asesorRepo.save(asesor);
+
+    // 5. Si el asesor tiene un usuario asociado, actualizamos también el usuario
+    if (asesor.usuario) {
+      const usuario = asesor.usuario;
+
+      // Si se enviaron datos para actualizar el 'dni' (password) o 'email', actualizamos el usuario
+      if (data.dni || data.email) {
+        if (data.dni) {
+          // Si el 'dni' ha cambiado (es la contraseña), lo encriptamos
+          const salt = await bcrypt.genSalt(10); // Generamos un "salt"
+          usuario.password = await bcrypt.hash(data.dni, salt); // Encriptamos el nuevo "dni" como contraseña
+        }
+
+        if (data.email) usuario.username = data.email; // Actualizamos el email del usuario
+
+        // Guardamos el usuario actualizado
+        await this.usuarioRepo.save(usuario);
+      }
+    }
+
+    return asesor; // Devolvemos el asesor actualizado
   }
-
   async deleteAsesor(id: number) {
     const deleted = await this.asesorRepo.delete({ id });
     if (deleted.affected === 0)
