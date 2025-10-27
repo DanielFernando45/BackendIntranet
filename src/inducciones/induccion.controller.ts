@@ -68,7 +68,7 @@ export class InduccionesController {
     return { message: '✅ Inducción creada exitosamente', newInduccion };
   }
 
-  @Delete(':id')
+  @Delete(' ')
   async deleteInduccion(@Param('id', ParseIntPipe) id: number) {
     return this.induccionesService.deleteInduccion(id);
   }

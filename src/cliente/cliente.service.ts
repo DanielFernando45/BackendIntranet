@@ -9,8 +9,8 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Cliente } from './cliente.entity';
-import { Repository, DataSource } from 'typeorm';
-import { UserRole } from 'src/usuario/usuario.entity';
+import { Repository, DataSource, In } from 'typeorm';
+import { UserRole, Usuario } from 'src/usuario/usuario.entity';
 import { CreateClienteDto } from './dto/crear-cliente.dto';
 import { ListarClienteDto } from './dto/listar-cliente.dto';
 import { updateClienteDto } from './dto/update-cliente.dto';
@@ -23,10 +23,11 @@ import { UpdateClienteDto } from 'src/admin/dto/update-admin.dto';
 import { ClientesSinAsignar } from './dto/clientes-sin-asignar.dto';
 import { updatedByClient } from './dto/updated-by-client.dto';
 import { ProcesosAsesoria } from 'src/procesos_asesoria/entities/procesos_asesoria.entity';
-import { ProcesosAsesoriaService } from 'src/procesos_asesoria/procesos_asesoria.service';
 import { Rol } from '../rol/entities/rol.entity'; // Importa la entidad Rol
 import { Contrato } from 'src/contrato/entities/contrato.entity';
 import { BackbazeService } from 'src/backblaze/backblaze.service';
+import * as bcrypt from 'bcrypt';
+
 @Injectable()
 export class ClienteService {
   constructor(
@@ -49,6 +50,8 @@ export class ClienteService {
     private gradoAcademicoRepo: Repository<GradoAcademico>,
     @InjectRepository(Contrato)
     private contratoRepo: Repository<Contrato>,
+    @InjectRepository(Usuario)
+    private usuarioRepo: Repository<Cliente>,
 
     @InjectDataSource()
     private readonly dataSource: DataSource,
@@ -229,6 +232,46 @@ export class ClienteService {
     );
 
     return clientesFormateados;
+  }
+  async updateCliente(id: number, data: updateClienteDto) {
+    // 1. Verificamos si se enviaron datos para actualizar
+    if (!Object.keys(data).length) {
+      throw new BadRequestException('No se enviaron datos para actualizar');
+    }
+
+    // 2. Buscamos el cliente por su id
+    const cliente = await this.clienteRepo.findOne({
+      where: { id },
+      relations: ['usuario'], // Relacionamos con el usuario
+    });
+    if (!cliente) {
+      throw new NotFoundException('Cliente no encontrado');
+    }
+
+    // 3. Actualizamos solo los campos proporcionados en el cuerpo de la solicitud
+    Object.assign(cliente, data); // Asignamos los datos enviados en 'data'
+    await this.clienteRepo.save(cliente); // Guardamos el cliente actualizado
+
+    // 4. Si el cliente tiene un usuario asociado, actualizamos el usuario también
+    if (cliente.usuario) {
+      const usuario = cliente.usuario;
+
+      // Si se enviaron datos para actualizar el 'dni' o 'email', actualizamos el usuario
+      if (data.dni || data.email) {
+        // Si el dni ha cambiado (es la contraseña), lo encriptamos
+        if (data.dni) {
+          const salt = await bcrypt.genSalt(10); // Generamos un "salt"
+          usuario.password = await bcrypt.hash(data.dni, salt); // Encriptamos el nuevo "dni" como contraseña
+        }
+
+        if (data.email) usuario.username = data.email; // Actualizamos el email del usuario
+
+        // Guardamos el usuario actualizado
+        await this.usuarioRepo.save(usuario);
+      }
+    }
+
+    return cliente; // Devolvemos el cliente actualizado
   }
 
   async listarClientesAsignar(): Promise<ClientesSinAsignar[]> {
