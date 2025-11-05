@@ -31,6 +31,9 @@ async function bootstrap() {
       'http://167.71.164.153',
       'http://167.71.164.153:3001',
       'https://intranet.alejandriaconsultora.com',
+      'ionic://localhost',
+      'http://localhost:8080', // algunos builds iOS usan este puerto
+      'https://localhost', // certificados locales
     ],
     methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
     allowedHeaders: [
