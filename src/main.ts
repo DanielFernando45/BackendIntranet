@@ -21,17 +21,29 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       `${process.env.FRONT_PORT_ENV}`,
-      'https://intranet.alejandriaconsultora.com',
+      'http://localhost', // ✅ ANDROID WEBVIEW (obligatorio)
+      'capacitor://localhost', // ✅ Capacitor scheme
+      'http://127.0.0.1',
       'http://localhost:5174',
-      'http://137.184.97.175:3001',
-      'http://backend:3000',
-      'https://intranet.alejandriaconsultora.com:3001',
+      'http://192.168.1.42',
+      'http://192.168.1.42:3000',
+      'http://192.168.1.42:3001',
+      'http://167.71.164.153',
+      'http://167.71.164.153:3001',
+      'https://intranet.alejandriaconsultora.com',
+      'ionic://localhost',
+      'http://localhost:8080', // algunos builds iOS usan este puerto
+      'https://localhost', // certificados locales
     ],
-    methods: 'GET, POST, PUT, DELETE, OPTIONS, PATCH', // Métodos HTTP permitidos
-    allowedHeaders: 'Content-Type, Authorization, X-Requested-With', // Encabezados permitidos
-    credentials: true, // Permitir credenciales como cookies
-    preflightContinue: false, // Deja que NestJS maneje la respuesta de preflight automáticamente
-    optionsSuccessStatus: 204, // Responder con estado 204 para solicitudes preflight
+    methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+    ],
+    credentials: true,
+    preflightContinue: false,
   });
 
   app.useGlobalPipes(

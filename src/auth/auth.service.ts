@@ -159,7 +159,7 @@ export class AuthService {
     if (user.rol.nombre === 'supervisor' && area) datos_usuario.area = area;
 
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: '3h' }), // Expira en 30 segundos
       id_usuario: idUsuario,
       datos_usuario,
     };
