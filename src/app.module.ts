@@ -30,7 +30,7 @@ import { AreaModule } from './area/area.module';
 import { RolModule } from './rol/rol.module';
 import { NotificacionesModule } from './notificaciones/notificacion.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
-
+import { AsesoramientoDocumentoModule } from './asesoramiento-documento/asesoramiento-documento.module';
 let puerto: number;
 
 if (process.env.DB_PORT) {
@@ -81,7 +81,8 @@ if (process.env.DB_PORT) {
     AreaModule,
     RolModule,
     NotificacionesModule,
-    AuditoriaModule
+    AuditoriaModule,
+    AsesoramientoDocumentoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

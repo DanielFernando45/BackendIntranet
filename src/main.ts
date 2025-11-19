@@ -26,10 +26,10 @@ async function bootstrap() {
       'http://127.0.0.1',
       'http://localhost:5174',
       'http://192.168.1.42',
-      'http://192.168.1.42:3000',
       'http://192.168.1.42:3001',
       'http://167.71.164.153',
       'http://167.71.164.153:3001',
+      'http://localhost:3000',
       'https://intranet.alejandriaconsultora.com',
       'ionic://localhost',
       'http://localhost:8080', // algunos builds iOS usan este puerto
@@ -43,7 +43,6 @@ async function bootstrap() {
       'Accept',
     ],
     credentials: true,
-    preflightContinue: false,
   });
 
   app.useGlobalPipes(
