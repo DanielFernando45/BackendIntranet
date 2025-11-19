@@ -51,9 +51,6 @@ export class AddTableOtherDocs1763561555085 implements MigrationInterface {
       }),
     );
 
-    // ------------------------------
-    // 2. Tabla HIJA: asesoramiento_documento_archivos
-    // ------------------------------
     await queryRunner.createTable(
       new Table({
         name: 'asesoramiento_documento_archivos',

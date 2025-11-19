@@ -20,6 +20,8 @@ import {
   ValidationPipe,
   Req,
   UnauthorizedException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { AsuntosService } from './asuntos.service';
 import { CreateAsuntoDto } from './dto/create-asunto.dto';
@@ -139,6 +141,26 @@ export class AsuntosController {
   @Get('all/:id')
   async getAll(@Param('id', ParseIntPipe) id: number) {
     return await this.asuntosService.getAll(id);
+  }
+
+  @Get('global/:id')
+  async getAllGlobalizado(@Param('id', ParseIntPipe) id: number) {
+    try {
+      const data = await this.asuntosService.getAllGlobalizado(id);
+
+      return {
+        mensaje: 'Listado globalizado obtenido correctamente',
+        total_asuntos: data.length,
+        data,
+      };
+    } catch (error) {
+      console.error('❌ Error en getAllGlobalizado:', error);
+
+      throw new HttpException(
+        'Error al obtener listado globalizado.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   @Patch(':id')
