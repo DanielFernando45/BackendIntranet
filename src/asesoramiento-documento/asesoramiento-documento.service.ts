@@ -113,37 +113,26 @@ export class AsesoramientoDocumentoService {
 
     if (!documento) throw new NotFoundException('Documento no encontrado');
 
-    // 1️⃣ Actualizar campos base
     Object.assign(documento, changes);
 
-    // -----------------------------------------------------
-    // 2️⃣ SINCRONIZACIÓN DE ARCHIVOS (LA PARTE CRÍTICA)
-    // -----------------------------------------------------
     const archivosConservar = changes.archivosConservar || [];
 
-    // A. archivos que deben eliminarse
     const archivosAEliminar = documento.archivos.filter(
       (a) => !archivosConservar.includes(a.id),
     );
 
     for (const archivo of archivosAEliminar) {
-      // 1. eliminar de Backblaze
       await this.backblazeService.deleteFile(archivo.url);
 
-      // 2. eliminar de la base
       await this.archivoRepo.delete(archivo.id);
     }
 
-    // B. recargar archivos existentes (después de borrar)
     const archivosRestantes = await this.archivoRepo.find({
       where: { documento_id: documento.id },
     });
 
     documento.archivos = archivosRestantes;
 
-    // -----------------------------------------------------
-    // 3️⃣ AGREGAR NUEVOS ARCHIVOS
-    // -----------------------------------------------------
     if (files && files.length > 0) {
       for (const file of files) {
         const fileName = await this.backblazeService.uploadFile(
@@ -161,9 +150,6 @@ export class AsesoramientoDocumentoService {
       }
     }
 
-    // -----------------------------------------------------
-    // 4️⃣ GUARDAR DOCUMENTO FINAL
-    // -----------------------------------------------------
     await this.repo.save(documento);
 
     return documento;
