@@ -10,6 +10,7 @@ import { CreateAsesoramientoDocumentoDto } from './dto/create-asesoramiento-docu
 import { UpdateAsesoramientoDocumentoDto } from './dto/update-asesoramiento-documento.dto';
 import { BackbazeService } from 'src/backblaze/backblaze.service';
 import { DIRECTORIOS } from 'src/backblaze/directorios.enum';
+import { AsesoramientoDocumentoArchivo } from './entity/asesoramiento-documento-archivo.entity';
 
 @Injectable()
 export class AsesoramientoDocumentoService {
@@ -18,6 +19,8 @@ export class AsesoramientoDocumentoService {
 
     @InjectRepository(AsesoramientoDocumento)
     private repo: Repository<AsesoramientoDocumento>,
+    @InjectRepository(AsesoramientoDocumentoArchivo)
+    private archivoRepo: Repository<AsesoramientoDocumentoArchivo>,
   ) {}
 
   async create(
@@ -110,10 +113,37 @@ export class AsesoramientoDocumentoService {
 
     if (!documento) throw new NotFoundException('Documento no encontrado');
 
-    // Actualizar los campos del documento (título, etc.)
+    // 1️⃣ Actualizar campos base
     Object.assign(documento, changes);
 
-    // Si envían archivos nuevos → agregarlos a la tabla hija
+    // -----------------------------------------------------
+    // 2️⃣ SINCRONIZACIÓN DE ARCHIVOS (LA PARTE CRÍTICA)
+    // -----------------------------------------------------
+    const archivosConservar = changes.archivosConservar || [];
+
+    // A. archivos que deben eliminarse
+    const archivosAEliminar = documento.archivos.filter(
+      (a) => !archivosConservar.includes(a.id),
+    );
+
+    for (const archivo of archivosAEliminar) {
+      // 1. eliminar de Backblaze
+      await this.backblazeService.deleteFile(archivo.url);
+
+      // 2. eliminar de la base
+      await this.archivoRepo.delete(archivo.id);
+    }
+
+    // B. recargar archivos existentes (después de borrar)
+    const archivosRestantes = await this.archivoRepo.find({
+      where: { documento_id: documento.id },
+    });
+
+    documento.archivos = archivosRestantes;
+
+    // -----------------------------------------------------
+    // 3️⃣ AGREGAR NUEVOS ARCHIVOS
+    // -----------------------------------------------------
     if (files && files.length > 0) {
       for (const file of files) {
         const fileName = await this.backblazeService.uploadFile(
@@ -121,14 +151,21 @@ export class AsesoramientoDocumentoService {
           DIRECTORIOS.DOCUMENTOS,
         );
 
-        documento.archivos.push({
+        const nuevo = this.archivoRepo.create({
           documento_id: documento.id,
           url: fileName,
-        } as any);
+        });
+
+        await this.archivoRepo.save(nuevo);
+        documento.archivos.push(nuevo);
       }
     }
 
+    // -----------------------------------------------------
+    // 4️⃣ GUARDAR DOCUMENTO FINAL
+    // -----------------------------------------------------
     await this.repo.save(documento);
+
     return documento;
   }
 

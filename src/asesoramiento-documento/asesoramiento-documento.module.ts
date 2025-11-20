@@ -4,9 +4,13 @@ import { AsesoramientoDocumento } from './entity/asesoramiento-documento.entity'
 import { AsesoramientoDocumentoService } from './asesoramiento-documento.service';
 import { AsesoramientoDocumentoController } from './asesoramiento-documento.controller';
 import { BackblazeModule } from 'src/backblaze/backblaze.module';
+import { AsesoramientoDocumentoArchivo } from './entity/asesoramiento-documento-archivo.entity';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AsesoramientoDocumento]),
+    TypeOrmModule.forFeature([
+      AsesoramientoDocumento,
+      AsesoramientoDocumentoArchivo,
+    ]),
     BackblazeModule,
   ],
   controllers: [AsesoramientoDocumentoController],
