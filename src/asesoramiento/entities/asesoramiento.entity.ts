@@ -16,7 +16,7 @@ import {
 import { Cliente } from 'src/cliente/cliente.entity';
 import { Usuario } from 'src/usuario/usuario.entity'; // o Asesor, según tu estructura
 import { Asesor } from 'src/asesor/asesor.entity';
-
+import { AsesoramientoDocumento } from 'src/asesoramiento-documento/entity/asesoramiento-documento.entity';
 export enum Estado_Asesoria {
   ACTIVO = 'activo',
   DESACTIVADO = 'desactivado',
@@ -74,4 +74,7 @@ export class Asesoramiento {
     (informacion_pago) => informacion_pago.asesoramiento,
   )
   informacion_pago: Informacion_Pagos[];
+
+  @OneToMany(() => AsesoramientoDocumento, (doc) => doc.asesoramiento)
+  documentos: AsesoramientoDocumento[];
 }

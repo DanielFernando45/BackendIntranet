@@ -552,6 +552,96 @@ export class AsuntosService {
     return arregloAsuntos;
   }
 
+  async getAllGlobalizado(id: number) {
+    const rows = await this.asuntoRepo
+      .createQueryBuilder('asun')
+      .leftJoin('asun.documentos', 'doc')
+      .innerJoin('asun.asesoramiento', 'ase')
+      .select([
+        'asun.id AS id_asunto',
+        'asun.titulo AS titulo',
+        'asun.titulo_asesor AS titulo_asesor',
+        'asun.estado AS estado',
+        'asun.fecha_entregado AS fecha_entrega',
+        'asun.fecha_revision AS fecha_revision',
+        'asun.fecha_estimada AS fecha_estimada',
+        'asun.fecha_terminado AS fecha_terminado',
+        'ase.profesion_asesoria AS profesion_asesoria',
+        'doc.nombre AS documento_nombre',
+        'doc.ruta AS documento_ruta',
+        'doc.subido_por AS subido_por',
+        'doc.created_at AS documento_fecha',
+      ])
+      .where('ase.id = :id', { id })
+      .orderBy('asun.fecha_entregado', 'ASC')
+      .addOrderBy('doc.created_at', 'ASC')
+      .getRawMany();
+
+    if (!rows || rows.length === 0) return [];
+
+    const resultado: any[] = [];
+
+    for (const row of rows) {
+      const idAsunto = row['id_asunto'];
+
+      let index = resultado.findIndex((a) => a.id_asunto === idAsunto);
+
+      // 📌 Resolver FECHA principal del asunto según su estado
+      let fecha: string;
+      switch (row['estado']) {
+        case 'terminado':
+          fecha = row['fecha_terminado'];
+          break;
+        case 'proceso':
+          fecha = row['fecha_revision']; // Aquí va REVISION (no estimada)
+          break;
+        case 'entregado':
+          fecha = row['fecha_entrega'];
+          break;
+        default:
+          fecha = new Date().toISOString();
+          break;
+      }
+
+      // 👉 Si no existe el asunto aún, se crea
+      if (index === -1) {
+        index = resultado.length;
+        resultado.push({
+          id_asunto: idAsunto,
+          titulo: row['titulo'],
+          titulo_asesor: row['titulo_asesor'],
+          profesion_asesoria: row['profesion_asesoria'],
+          estado: row['estado'],
+
+          // 🔥 TODAS LAS FECHAS INDIVIDUALES
+          fecha_principal: fecha, // Campo general según estado
+          fecha_entrega: row['fecha_entrega'],
+          fecha_revision: row['fecha_revision'],
+          fecha_estimada: row['fecha_estimada'],
+          fecha_terminado: row['fecha_terminado'],
+
+          documentos: [],
+        });
+      }
+
+      // 👉 Agregar documentos
+      if (row['documento_nombre']) {
+        const signedUrl = await this.backblazeService.getSignedUrl(
+          row['documento_ruta'],
+        );
+
+        resultado[index].documentos.push({
+          nombre: row['documento_nombre'],
+          ruta: signedUrl,
+          subido_por: row['subido_por'],
+          fecha: row['documento_fecha'],
+        });
+      }
+    }
+
+    return resultado;
+  }
+
   async listarFechasEntregas(id: number) {
     const fechasEntregaProceso = await this.asuntoRepo.find({
       where: { asesoramiento: { id }, estado: Estado_asunto.PROCESO },
