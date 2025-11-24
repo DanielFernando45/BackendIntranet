@@ -1,10 +1,5 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import * as B2 from 'backblaze-b2';
-import { DataSource } from 'typeorm';
 import { DIRECTORIOS } from './directorios.enum';
 import { Readable } from 'stream';
 
@@ -65,14 +60,7 @@ export class BackbazeService {
       /https:\/\/(f\d+)\.backblazeb2\.com/,
     );
     const region = match ? match[1] : 'f004';
-
-    // Encode each segment of the path separately to handle spaces and special characters
-    const encodedFileName = fileName
-      .split('/')
-      .map((segment) => encodeURIComponent(segment))
-      .join('/');
-
-    return `https://${region}.backblazeb2.com/file/${this.bucketName}/${encodedFileName}`;
+    return `https://${region}.backblazeb2.com/file/${this.bucketName}/${fileName}`;
   }
 
   async deleteFile(fileName: string): Promise<boolean> {
@@ -89,7 +77,7 @@ export class BackbazeService {
 
       if (!file) {
         console.warn(`Archivo no encontrado en B2: ${fileName}`);
-        return false;
+        return false; // No se encontró el archivo
       }
 
       await this.b2.deleteFileVersion({
@@ -97,13 +85,12 @@ export class BackbazeService {
         fileId: file.fileId,
       });
 
-      return true;
+      return true; // Eliminado correctamente
     } catch (err) {
       console.error(`Error al eliminar archivo ${fileName}:`, err);
-      return false;
+      return false; // Error durante la eliminación
     }
   }
-
   async getUploadUrl() {
     await this.ensureAuthorized();
 
