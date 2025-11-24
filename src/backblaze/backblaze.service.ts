@@ -65,7 +65,14 @@ export class BackbazeService {
       /https:\/\/(f\d+)\.backblazeb2\.com/,
     );
     const region = match ? match[1] : 'f004';
-    return `https://${region}.backblazeb2.com/file/${this.bucketName}/${fileName}`;
+
+    // Encode each segment of the path separately to handle spaces and special characters
+    const encodedFileName = fileName
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+
+    return `https://${region}.backblazeb2.com/file/${this.bucketName}/${encodedFileName}`;
   }
 
   async deleteFile(fileName: string): Promise<boolean> {
@@ -82,7 +89,7 @@ export class BackbazeService {
 
       if (!file) {
         console.warn(`Archivo no encontrado en B2: ${fileName}`);
-        return false; // No se encontró el archivo
+        return false;
       }
 
       await this.b2.deleteFileVersion({
@@ -90,12 +97,13 @@ export class BackbazeService {
         fileId: file.fileId,
       });
 
-      return true; // Eliminado correctamente
+      return true;
     } catch (err) {
       console.error(`Error al eliminar archivo ${fileName}:`, err);
-      return false; // Error durante la eliminación
+      return false;
     }
   }
+
   async getUploadUrl() {
     await this.ensureAuthorized();
 
@@ -159,6 +167,4 @@ export class BackbazeService {
       result.data.files.map((f) => f.fileName),
     );
   }
-
-  
 }
