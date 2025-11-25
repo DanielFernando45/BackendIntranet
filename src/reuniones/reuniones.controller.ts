@@ -96,8 +96,7 @@ export class ReunionesController {
 
   @Get('allReunionesProximas/:id')
   allReunionesProximas(@Param('id', ParseIntPipe) id: number) {
-    const estado = Estado_reunion.ESPERA;
-    return this.reunionesService.listReunionesByAsesor(id, estado);
+    return this.reunionesService.listReunionesByAsesor(id);
   }
 
   @Get('proximasReunionesPorFecha/:id')
@@ -108,7 +107,7 @@ export class ReunionesController {
   @Get('allReunionesAnteriores/:id')
   allReunionesAnteriores(@Param('id', ParseIntPipe) id: number) {
     const estado = Estado_reunion.TERMINADO;
-    return this.reunionesService.listReunionesByAsesor(id, estado);
+    return this.reunionesService.listReunionesByAsesor(id);
   }
 
   @Get('zoom')
