@@ -1,10 +1,5 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import * as B2 from 'backblaze-b2';
-import { DataSource } from 'typeorm';
 import { DIRECTORIOS } from './directorios.enum';
 import { Readable } from 'stream';
 
@@ -159,6 +154,4 @@ export class BackbazeService {
       result.data.files.map((f) => f.fileName),
     );
   }
-
-  
 }
