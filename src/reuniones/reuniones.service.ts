@@ -33,7 +33,7 @@ export class ReunionesService {
 
     @InjectRepository(Reunion)
     private reunionRepo: Repository<Reunion>,
-  ) {}
+  ) { }
 
   async addReunion(createReunionDto: CreateReunionDto) {
     if (
@@ -201,65 +201,70 @@ export class ReunionesService {
     return terminados.length > 0 ? terminados : [];
   }
 
-  async listReunionesByAsesor(id: number, estado: Estado_reunion) {
-    let response;
+  async listReunionesByAsesor(id: number) {
+
     const reunionesByAsesor = await this.reunionRepo
       .createQueryBuilder('re')
       .innerJoin('re.asesoramiento', 'as')
       .innerJoin('as.procesosasesoria', 'pr')
-      .innerJoin('pr.asesor', 'asesor')
+      .innerJoin('pr.cliente','cl')
+      .innerJoin('pr.asesor', 'ase')
       .select([
         'DISTINCT re.id AS id',
         'as.id AS id_asesoramiento',
+        'cl.nombre as delegado',
         're.titulo AS titulo',
         're.fecha_reunion AS fecha_reunion',
         're.enlace_zoom AS enlace',
         're.enlace_video AS enlace_video',
+        're.estado AS estado',
         're.video_password AS video_password',
-        're.meetingId as meetingId',
+        're.meetingId AS meetingId',
       ])
-      .where('asesor.id= :id', { id })
-      .andWhere('re.estado= :estado', { estado })
+      .where('as.id = :id', { id }) 
+      .andWhere('pr.esDelegado = :esdelegado',{esdelegado:true})       // asr.id = 8
+      .andWhere('re.estado = :estado', { estado: 'espera' })
       .getRawMany();
 
-    if (estado === Estado_reunion.ESPERA) {
-      response = await Promise.all(
-        reunionesByAsesor.map(async (reunion) => {
-          const delegado = await this.clienteService.getDelegado(
-            reunion.id_asesoramiento,
-          );
-          return {
-            id: reunion.id,
-            delegado: delegado.nombre_delegado,
-            asesoramiento_id: reunion.id_asesoramiento,
-            titulo: reunion.titulo,
-            fecha_reunion: reunion.fecha_reunion,
-            enlace: reunion.enlace,
-            meetingId: reunion.meetingId,
-          };
-        }),
-      );
-    }
-    if (estado === Estado_reunion.TERMINADO) {
-      response = await Promise.all(
-        reunionesByAsesor.map(async (reunion) => {
-          const delegado = await this.clienteService.getDelegado(
-            reunion.id_asesoramiento,
-          );
-          return {
-            id: reunion.id,
-            delegado: delegado.nombre_delegado,
-            asesoramiento_id: reunion.id_asesoramiento,
-            titulo: reunion.titulo,
-            fecha_reunion: reunion.fecha_reunion,
-            enlace_video: reunion.enlace_video,
-            password_video: reunion.video_password,
-            meetingId: reunion.meetingId,
-          };
-        }),
-      );
-    }
-    return response;
+
+    // if (estado === Estado_reunion.ESPERA) {
+    //   response = await Promise.all(
+    //     reunionesByAsesor.map(async (reunion) => {
+    //       const delegado = await this.clienteService.getDelegado(
+    //         reunion.id_asesoramiento,
+    //       );
+    //       return {
+    //         id: reunion.id,
+    //         delegado: delegado.nombre_delegado,
+    //         asesoramiento_id: reunion.id_asesoramiento,
+    //         titulo: reunion.titulo,
+    //         fecha_reunion: reunion.fecha_reunion,
+    //         enlace: reunion.enlace,
+    //         meetingId: reunion.meetingId,
+    //       };
+    //     }),
+    //   );
+    // }
+    // if (estado === Estado_reunion.TERMINADO) {
+    //   response = await Promise.all(
+    //     reunionesByAsesor.map(async (reunion) => {
+    //       const delegado = await this.clienteService.getDelegado(
+    //         reunion.id_asesoramiento,
+    //       );
+    //       return {
+    //         id: reunion.id,
+    //         delegado: delegado.nombre_delegado,
+    //         asesoramiento_id: reunion.id_asesoramiento,
+    //         titulo: reunion.titulo,
+    //         fecha_reunion: reunion.fecha_reunion,
+    //         enlace_video: reunion.enlace_video,
+    //         password_video: reunion.video_password,
+    //         meetingId: reunion.meetingId,
+    //       };
+    //     }),
+    //   );
+    // }
+    return reunionesByAsesor;
   }
 
   async getReunionesByFecha(
