@@ -262,4 +262,72 @@ export class AuthService {
 
     return { message: 'Contraseña cambiada correctamente' };
   }
+
+  /**
+   * Refresca el token de autenticación
+   * @param token Token JWT actual
+   * @returns Nuevo token JWT con la misma información
+   */
+  async refreshToken(token: string) {
+    let payload: any;
+
+    try {
+      // Verificar que el token sea válido
+      payload = this.jwtService.verify(token);
+    } catch (err) {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+
+    // Buscar el usuario para verificar que siga existiendo y activo
+    const user = await this.usuarioRepo.findOne({
+      where: { id: payload.sub },
+      relations: ['rol'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (!user.estado) {
+      throw new UnauthorizedException(
+        'El usuario está inactivo, por favor contacta al administrador',
+      );
+    }
+
+    // ✅ Verificar si es cliente y tiene proceso delegado
+    let esDelegado = false;
+    if (payload.id_cliente) {
+      const proceso = await this.dataSource
+        .createQueryBuilder()
+        .select('pa.esDelegado', 'esDelegado')
+        .from('procesos_asesoria', 'pa')
+        .where('pa.id_cliente = :idCliente', { idCliente: payload.id_cliente })
+        .andWhere('pa.esDelegado = true')
+        .getRawOne();
+
+      esDelegado = !!proceso?.esDelegado;
+    }
+
+    // Crear nuevo payload con la información actualizada
+    const newPayload: any = {
+      sub: payload.sub,
+      username: payload.username,
+      role: payload.role,
+      esDelegado,
+    };
+
+    // Agregar IDs opcionales si existen
+    if (payload.id_supervisor) newPayload.id_supervisor = payload.id_supervisor;
+    if (payload.id_cliente) newPayload.id_cliente = payload.id_cliente;
+    if (payload.id_asesor) newPayload.id_asesor = payload.id_asesor;
+    if (payload.id_admin) newPayload.id_admin = payload.id_admin;
+
+    // Generar nuevo token con el mismo tiempo de expiración
+    const newToken = this.jwtService.sign(newPayload, { expiresIn: '3h' });
+
+    return {
+      access_token: newToken,
+      message: 'Token refrescado correctamente',
+    };
+  }
 }

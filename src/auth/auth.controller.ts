@@ -15,7 +15,6 @@ import {
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/changue-password.dto';
-import { Throttle } from '@nestjs/throttler';
 import * as bcrypt from 'bcrypt';
 import { UseGuards } from '@nestjs/common/decorators/core/use-guards.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -48,6 +47,19 @@ export class AuthController {
       return this.authService.recoverPassword(token, newPassword);
     }
     return new BadRequestException('La contraseñas no son iguales');
+  }
+
+  /**
+   * Endpoint para refrescar el token de autenticación
+   * @param token Token JWT actual
+   * @returns Nuevo token JWT
+   */
+  @Post('refresh')
+  async refreshToken(@Body('token') token: string) {
+    if (!token) {
+      throw new BadRequestException('El token es requerido');
+    }
+    return this.authService.refreshToken(token);
   }
 
   @Patch('change-password/:id')
