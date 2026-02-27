@@ -102,58 +102,77 @@ export class AsesoramientoDocumentoService {
   }
 
   async update(
-    id: number,
-    changes: UpdateAsesoramientoDocumentoDto,
-    files?: Express.Multer.File[],
-  ) {
-    const documento = await this.repo.findOne({
-      where: { id },
-      relations: ['archivos'],
-    });
+  id: number,
+  changes: UpdateAsesoramientoDocumentoDto,
+  files?: Express.Multer.File[],
+) {
+  console.log("Changes recibidos:", changes);
+  
+  const documento = await this.repo.findOne({
+    where: { id },
+    relations: ['archivos'],
+  });
 
-    if (!documento) throw new NotFoundException('Documento no encontrado');
+  if (!documento) throw new NotFoundException('Documento no encontrado');
 
-    Object.assign(documento, changes);
-
-    const archivosConservar = changes.archivosConservar || [];
-
-    const archivosAEliminar = documento.archivos.filter(
-      (a) => !archivosConservar.includes(a.id),
-    );
-
-    for (const archivo of archivosAEliminar) {
-      await this.backblazeService.deleteFile(archivo.url);
-
-      await this.archivoRepo.delete(archivo.id);
-    }
-
-    const archivosRestantes = await this.archivoRepo.find({
-      where: { documento_id: documento.id },
-    });
-
-    documento.archivos = archivosRestantes;
-
-    if (files && files.length > 0) {
-      for (const file of files) {
-        const fileName = await this.backblazeService.uploadFile(
-          file,
-          DIRECTORIOS.DOCUMENTOS,
-        );
-
-        const nuevo = this.archivoRepo.create({
-          documento_id: documento.id,
-          url: fileName,
-        });
-
-        await this.archivoRepo.save(nuevo);
-        documento.archivos.push(nuevo);
-      }
-    }
-
-    await this.repo.save(documento);
-
-    return documento;
+  // Actualizar título si viene
+  if (changes.titulo) {
+    documento.titulo = changes.titulo;
   }
+
+  // Parsear archivosConservar
+  let archivosConservar: number[] = [];
+  if (changes.archivosConservar) {
+    try {
+      // Intentar parsear como JSON
+      archivosConservar = JSON.parse(changes.archivosConservar);
+    } catch {
+      // Si no es JSON, intentar como array separado por comas
+      archivosConservar = changes.archivosConservar
+        .split(',')
+        .map(id => parseInt(id.trim()))
+        .filter(id => !isNaN(id));
+    }
+  }
+
+  console.log("Archivos a conservar:", archivosConservar);
+
+  // Eliminar archivos que no están en la lista
+  const archivosAEliminar = documento.archivos.filter(
+    (a) => !archivosConservar.includes(a.id),
+  );
+
+  for (const archivo of archivosAEliminar) {
+    await this.backblazeService.deleteFile(archivo.url);
+    await this.archivoRepo.delete(archivo.id);
+  }
+
+  // Agregar nuevos archivos
+  if (files && files.length > 0) {
+    for (const file of files) {
+      const fileName = await this.backblazeService.uploadFile(
+        file,
+        DIRECTORIOS.DOCUMENTOS,
+      );
+
+      const nuevo = this.archivoRepo.create({
+        documento_id: documento.id,
+        url: fileName,
+      });
+
+      await this.archivoRepo.save(nuevo);
+    }
+  }
+
+  // Obtener archivos actualizados
+  const archivosActualizados = await this.archivoRepo.find({
+    where: { documento_id: documento.id },
+  });
+  
+  documento.archivos = archivosActualizados;
+  
+  return this.repo.save(documento);
+}
 
   async remove(id: number) {
     const doc = await this.repo.findOne({

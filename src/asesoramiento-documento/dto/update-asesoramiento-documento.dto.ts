@@ -5,11 +5,12 @@ import { IsOptional, IsArray, IsNumber } from 'class-validator';
 export class UpdateAsesoramientoDocumentoDto extends PartialType(
   CreateAsesoramientoDocumentoDto,
 ) {
+   @IsOptional()
+  titulo?: string;
+
   @IsOptional()
   descripcion?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsNumber({}, { each: true })
-  archivosConservar?: number[];
+  archivosConservar?: string; // Cambiar a string
 }
