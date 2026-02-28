@@ -25,7 +25,7 @@ import { tipoPago, tipoServicio } from './entities/informacion_pagos.entity';
 
 @Controller('pagos')
 export class PagosController {
-  constructor(private readonly pagosService: PagosService) {}
+  constructor(private readonly pagosService: PagosService) { }
 
   @Get('pagosCuotas')
   async listarPagosPorCuotas() {
@@ -99,7 +99,12 @@ export class PagosController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePagoDto: UpdateCuotasDto,
   ) {
-    return await this.pagosService.updateCuotas(id, updatePagoDto);
+    const result = await this.pagosService.updateCuotas(id, updatePagoDto);
+    return {
+      statusCode: 200,
+      message: 'Cuotas actualizadas exitosamente',
+      data: result
+    };
   }
 
   @Patch('updateServicios/:id')

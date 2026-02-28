@@ -1,27 +1,54 @@
-import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsNumber, IsOptional, IsDateString, Min } from 'class-validator';
 
-export class Cuotas{
+export class Cuotas {
     @IsNumber()
-    @IsOptional()
-    monto1:number;
+    @Min(0)
+    monto1: number;
 
     @IsDateString()
-    @IsOptional()
-    fecha_pago1:Date;
+    fecha_pago1: string;
 
     @IsNumber()
-    @IsOptional()
-    monto2:number;
+    @Min(0)
+    monto2: number;
 
+    @IsOptional()
     @IsDateString()
-    @IsOptional()
-    fecha_pago2?:Date;
+    fecha_pago2?: string;  // 👈 Agregar fecha_pago2 como opcional
 
+    @IsOptional()
     @IsNumber()
-    @IsOptional()
-    monto3?:number;
+    @Min(0)
+    monto3?: number;
 
-    @IsDateString()
     @IsOptional()
-    fecha_pago3?:Date;
+    @IsDateString()
+    fecha_pago3?: string;  // 👈 Agregar fecha_pago3
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    monto4?: number;
+
+    @IsOptional()
+    @IsDateString()
+    fecha_pago4?: string;  // 👈 Agregar fecha_pago4
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    monto5?: number;
+
+    @IsOptional()
+    @IsDateString()
+    fecha_pago5?: string;  // 👈 Agregar fecha_pago5
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    monto6?: number;
+
+    @IsOptional()
+    @IsDateString()
+    fecha_pago6?: string;  // 👈 Agregar fecha_pago6
 }

@@ -34,7 +34,7 @@ export class PagosService {
 
     @InjectDataSource()
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async contadoYotrosServicios(
     createPagoDto: CreatePagoAlContadoDto,
@@ -168,6 +168,11 @@ export class PagosService {
     const pagosValues = createPagoDto.cuotas;
 
     try {
+      // Validar que el número de cuotas esté entre 2 y 6
+      if (infoValues.numero_cuotas < 2 || infoValues.numero_cuotas > 6) {
+        throw new BadRequestException('El número de cuotas debe estar entre 2 y 6');
+      }
+
       // Crear la información del pago
       const newInfopago = queryRunner.manager.create(Informacion_Pagos, {
         titulo: 'Pago por cuotas',
@@ -176,11 +181,18 @@ export class PagosService {
         fecha_creado: new Date(),
         tipo_pago: tipoPago.CUOTAS,
         tipo_servicio: tipoServicio.ASESORIA,
-        asesoramiento: { id: infoValues.id_asesoramiento }, // Aquí usamos el id_asesoramiento recibido del controlador
+        asesoramiento: { id: infoValues.id_asesoramiento },
       });
+
       const { id } = await queryRunner.manager.save(newInfopago);
 
-      // Crear el pago de la primera cuota
+      // Array para almacenar los montos de las cuotas - ESPECIFICAR EL TIPO
+      const montosCuotas: number[] = [];
+
+      // Array para almacenar las cuotas adicionales - ESPECIFICAR EL TIPO
+      const cuotasAdicionales: Pago[] = [];
+
+      // Crear la primera cuota (siempre existe y está pagada)
       const pago1 = queryRunner.manager.create(Pago, {
         nombre: 'Cuota 1',
         monto: pagosValues.monto1,
@@ -189,8 +201,9 @@ export class PagosService {
         informacion_pago: { id },
       });
       await queryRunner.manager.save(pago1);
+      montosCuotas.push(pago1.monto);
 
-      // Crear el pago de la segunda cuota
+      // Crear la segunda cuota (siempre existe)
       const pago2 = queryRunner.manager.create(Pago, {
         nombre: 'Cuota 2',
         monto: pagosValues.monto2,
@@ -198,34 +211,52 @@ export class PagosService {
         informacion_pago: { id },
       });
       await queryRunner.manager.save(pago2);
+      montosCuotas.push(pago2.monto);
 
-      // Si hay una tercera cuota y se especifican 3 cuotas, crear el pago para la tercera cuota
-      if (pagosValues.monto3 && infoValues.numero_cuotas === 3) {
-        const pago3 = queryRunner.manager.create(Pago, {
-          nombre: 'Cuota 3',
-          monto: pagosValues.monto3,
+      // Crear cuotas adicionales según el número seleccionado
+      for (let i = 3; i <= infoValues.numero_cuotas; i++) {
+        const montoKey = `monto${i}` as keyof typeof pagosValues;
+
+        // Validar que exista el monto para esta cuota
+        if (!pagosValues[montoKey]) {
+          throw new BadRequestException(`El monto de la cuota ${i} es requerido`);
+        }
+
+        const pago = queryRunner.manager.create(Pago, {
+          nombre: `Cuota ${i}`,
+          monto: pagosValues[montoKey] as number,
           estado_pago: estadoPago.POR_PAGAR,
           informacion_pago: { id },
         });
-        await queryRunner.manager.save(pago3);
 
-        // Validar que la suma de las tres cuotas sea igual al pago total
-        if (pago1.monto + pago2.monto + pago3.monto !== infoValues.pago_total)
-          throw new BadRequestException('Las cuotas deben sumar el pago total');
-      } else {
-        // Si no hay tercera cuota, validar que la suma de las dos cuotas sea igual al pago total
-        if (pago1.monto + pago2.monto !== infoValues.pago_total)
-          throw new BadRequestException('Las cuotas deben sumar el pago total');
+        await queryRunner.manager.save(pago);
+        montosCuotas.push(pago.monto);
+        cuotasAdicionales.push(pago);
+      }
+
+      // Validar que la suma de todas las cuotas sea igual al pago total
+      const sumaCuotas = montosCuotas.reduce((acc, monto) => acc + monto, 0);
+
+      if (Math.abs(sumaCuotas - infoValues.pago_total) > 0.01) { // Tolerancia para errores de redondeo
+        throw new BadRequestException(
+          `La suma de las cuotas (${sumaCuotas}) debe ser igual al pago total (${infoValues.pago_total})`
+        );
       }
 
       // Confirmar la transacción si todo ha ido bien
       await queryRunner.commitTransaction();
       return 'Agregados los pagos por cuotas satisfactoriamente';
+
     } catch (err) {
       // Hacer rollback en caso de error
       await queryRunner.rollbackTransaction();
-      return new InternalServerErrorException(
-        `Error al realizar el pago por cuotas ${err.message}`,
+
+      if (err instanceof BadRequestException) {
+        throw err;
+      }
+
+      throw new InternalServerErrorException(
+        `Error al realizar el pago por cuotas: ${err.message}`,
       );
     } finally {
       // Liberar el query runner después de terminar
@@ -260,35 +291,119 @@ export class PagosService {
   }
 
   async updateCuotas(id: number, updateCuotasDto: UpdateCuotasDto) {
-    const cuotas = await this.pagoRepo.find({
-      where: { informacion_pago: { id } },
-    });
-    if (!cuotas.length)
-      throw new NotFoundException(`No se encontraron cuotas para ese Id:${id}`);
-    const monto_total = cuotas.reduce(
-      (acumulador, valorActual) => acumulador + valorActual.monto,
-      0,
-    );
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    for (let i = 0; i < cuotas.length; i++) {
-      //updateCuotasDto[`nombre${i+1}`] && (cuotas[i].nombre=updateCuotasDto[`nombre${i+1}`])
-      updateCuotasDto[`monto${i + 1}`] &&
-        (cuotas[i].monto = updateCuotasDto[`monto${i + 1}`]);
-      if (updateCuotasDto[`fecha_pago${i + 1}`]) {
-        cuotas[i].fecha_pago = updateCuotasDto[`fecha_pago${i + 1}`];
-        cuotas[i].estado_pago = estadoPago.PAGADO;
+    try {
+      // Buscar la información del pago
+      const infoPago = await queryRunner.manager.findOne(Informacion_Pagos, {
+        where: { id },
+      });
+
+      if (!infoPago) {
+        throw new NotFoundException(`No se encontró información de pago con ID: ${id}`);
       }
+
+      // Buscar todas las cuotas asociadas
+      let cuotas = await queryRunner.manager.find(Pago, {
+        where: { informacion_pago: { id } },
+        order: { id: 'ASC' }
+      });
+
+      if (!cuotas.length) {
+        throw new NotFoundException(`No se encontraron cuotas para el pago ID: ${id}`);
+      }
+
+      // Determinar el número actual de cuotas basado en las cuotas existentes
+      const numeroCuotasActual = cuotas.length;
+
+      // Verificar si necesitamos cambiar el número de cuotas
+      // Esto se determina por la cantidad de montos recibidos en el DTO
+      const montosRecibidos : number[]=[];
+      for (let i = 1; i <= 6; i++) {
+        if (updateCuotasDto[`monto${i}`] !== undefined) {
+          montosRecibidos.push(i);
+        }
+      }
+
+      // Si recibimos más montos que cuotas actuales, necesitamos agregar cuotas
+      if (montosRecibidos.length > 0) {
+        const maxCuotaRecibida = Math.max(...montosRecibidos);
+
+        if (maxCuotaRecibida > numeroCuotasActual) {
+          // Necesitamos agregar más cuotas
+          const nuevasCuotasNecesarias = maxCuotaRecibida - numeroCuotasActual;
+
+          for (let i = 0; i < nuevasCuotasNecesarias; i++) {
+            const nuevoNumero = numeroCuotasActual + i + 1;
+            const nuevaCuota = queryRunner.manager.create(Pago, {
+              nombre: `Cuota ${nuevoNumero}`,
+              monto: 0,
+              estado_pago: estadoPago.POR_PAGAR,
+              informacion_pago: { id },
+            });
+            const cuotaGuardada = await queryRunner.manager.save(nuevaCuota);
+            cuotas.push(cuotaGuardada);
+          }
+
+          // Actualizar el número de cuotas en infoPago
+          infoPago.numero_cuotas = cuotas.length;
+          await queryRunner.manager.save(infoPago);
+        }
+      }
+
+      // Actualizar cada cuota con los valores del DTO
+      for (let i = 0; i < cuotas.length; i++) {
+        const numCuota = i + 1;
+        const montoKey = `monto${numCuota}`;
+        const fechaKey = `fecha_pago${numCuota}`;
+
+        // Actualizar monto si viene en el DTO
+        if (updateCuotasDto[montoKey] !== undefined) {
+          cuotas[i].monto = updateCuotasDto[montoKey];
+        }
+
+        // Actualizar fecha y estado si viene fecha en el DTO
+        if (updateCuotasDto[fechaKey]) {
+          cuotas[i].fecha_pago = updateCuotasDto[fechaKey];
+          cuotas[i].estado_pago = estadoPago.PAGADO;
+        }
+      }
+
+      // Validar suma total
+      const nuevo_total = cuotas.reduce((acc, curr) => acc + curr.monto, 0);
+
+      if (Math.abs(nuevo_total - infoPago.pago_total) > 0.01) {
+        throw new BadRequestException(
+          `La suma de las cuotas (${nuevo_total}) debe ser igual al pago total (${infoPago.pago_total})`
+        );
+      }
+
+      await queryRunner.manager.save(cuotas);
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Cuotas actualizadas correctamente',
+        data: {
+          id_pago: id,
+          numero_cuotas: cuotas.length,
+          total: nuevo_total,
+          cuotas: cuotas.map(c => ({
+            nombre: c.nombre,
+            monto: c.monto,
+            estado: c.estado_pago,
+            fecha_pago: c.fecha_pago
+          }))
+        }
+      };
+
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-    const nuevo_total = cuotas.reduce(
-      (acumulador, valorActual) => acumulador + valorActual.monto,
-      0,
-    );
-    if (monto_total !== nuevo_total)
-      throw new BadRequestException(
-        'El monto de las cuotas debe ser igual al monto total',
-      );
-    await this.pagoRepo.save(cuotas);
-    return `Se actualizaron las cuotas`;
   }
 
   async updateOtroServicios(id: number, body: UpdatePagoContadoDto) {
